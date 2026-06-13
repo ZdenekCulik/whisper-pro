@@ -76,7 +76,7 @@ struct OnboardingLicenseSetupCard: View {
 
             OnboardingLicenseActionRow(
                 title: "Start 7-day Trial",
-                subtitle: "Use VoiceInk now.",
+                subtitle: "Use Whisper Pro now.",
                 systemImage: "calendar",
                 isEnabled: true,
                 action: onStartTrial
@@ -92,7 +92,7 @@ struct OnboardingVerifiedLicenseCard: View {
 
     var body: some View {
         LicenseActiveSummaryCard(
-            title: "VoiceInk Pro",
+            title: "Whisper Pro",
             subtitle: String(localized: "License active on this Mac."),
             licenseKey: licenseKey,
             didCopyLicenseKey: didCopyLicenseKey,

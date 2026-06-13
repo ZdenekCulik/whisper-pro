@@ -8,8 +8,8 @@ struct OnboardingContextAwarenessScreen: View {
     var body: some View {
         OnboardingStepScreen(
             systemImage: "sparkles.square.fill.on.square",
-            title: "VoiceInk is Context-Aware",
-            subtitle: "VoiceInk automatically understands what you are working with and selects your preferred setup.",
+            title: "Whisper Pro is Context-Aware",
+            subtitle: "Whisper Pro automatically understands what you are working with and selects your preferred setup.",
             contentMaxWidth: max(contentMaxWidth, 680),
             showsHeader: false,
             contentYOffset: 0
@@ -41,14 +41,14 @@ private struct OnboardingContextAwarenessContent: View {
                     )
 
                 VStack(spacing: 10) {
-                    Text("VoiceInk is context-aware.")
+                    Text("Whisper Pro is context-aware.")
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(AppTheme.Text.primary)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text("VoiceInk automatically understands what you are working with and selects your preferred setup. You can always configure this by editing or creating new modes.")
+                    Text("Whisper Pro automatically understands what you are working with and selects your preferred setup. You can always configure this by editing or creating new modes.")
                         .font(.system(size: 15))
                         .foregroundColor(AppTheme.Text.secondary)
                         .multilineTextAlignment(.center)
@@ -87,7 +87,7 @@ private struct ContextAwarenessCenterSlot: View {
             .frame(maxWidth: 560)
             .frame(height: 250)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("VoiceInk modes include Dictation, Enhance, Email, Assistant, Rewrite, Ask, Summarize, and Translate.")
+            .accessibilityLabel("Whisper Pro modes include Dictation, Enhance, Email, Assistant, Rewrite, Ask, Summarize, and Translate.")
     }
 }
 
@@ -174,7 +174,7 @@ private struct ContextAwarenessModeHub: View {
                 .foregroundColor(AppTheme.Text.secondary)
                 .frame(width: 18)
 
-            Text("VoiceInk Modes")
+            Text("Whisper Pro Modes")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(AppTheme.Text.primary)
                 .lineLimit(1)

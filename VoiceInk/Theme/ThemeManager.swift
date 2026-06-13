@@ -30,6 +30,8 @@ extension Color {
 enum AppSkin: String, CaseIterable, Identifiable {
     case light
     case dark
+    /// Follow the macOS system appearance automatically.
+    case system
 
     var id: String { rawValue }
 
@@ -37,6 +39,7 @@ enum AppSkin: String, CaseIterable, Identifiable {
         switch self {
         case .light: return "Light"
         case .dark: return "Dark"
+        case .system: return "Auto"
         }
     }
 
@@ -44,14 +47,16 @@ enum AppSkin: String, CaseIterable, Identifiable {
         switch self {
         case .light: return "sun.max"
         case .dark: return "moon"
+        case .system: return "circle.lefthalf.filled"
         }
     }
 
-    /// Forced color scheme for the skin.
-    var colorScheme: ColorScheme {
+    /// Forced color scheme for the skin. `nil` means "follow the system" (Auto).
+    var colorScheme: ColorScheme? {
         switch self {
         case .light: return .light
         case .dark: return .dark
+        case .system: return nil
         }
     }
 

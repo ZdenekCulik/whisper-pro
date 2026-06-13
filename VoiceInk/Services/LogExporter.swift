@@ -53,7 +53,7 @@ final class LogExporter {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
 
-        logLines.append("=== VoiceInk Diagnostic Logs ===")
+        logLines.append("=== Whisper Pro Diagnostic Logs ===")
         logLines.append("Export Date: \(dateFormatter.string(from: Date()))")
         logLines.append("Subsystem: \(subsystem)")
         logLines.append("Total Sessions: \(sessionStartDates.count)")
@@ -134,7 +134,7 @@ final class LogExporter {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let timestamp = dateFormatter.string(from: Date())
-        let fileName = "VoiceInk_Logs_\(timestamp).log"
+        let fileName = "WhisperPro_Logs_\(timestamp).log"
 
         guard let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first else {
             throw NSError(domain: "LogExporter", code: 1, userInfo: [NSLocalizedDescriptionKey: "Downloads directory unavailable"])

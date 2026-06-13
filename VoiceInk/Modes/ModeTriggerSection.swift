@@ -50,7 +50,7 @@ struct ModeTriggerSection: View {
         HStack {
             HStack(spacing: 4) {
                 Text("Triggers")
-                InfoTip("VoiceInk automatically switches to this mode when you use the apps or websites you add here.")
+                InfoTip("Whisper Pro automatically switches to this mode when you use the apps or websites you add here.")
             }
 
             Spacer()

@@ -13,7 +13,7 @@ struct CompactClaudeView: View {
     @EnvironmentObject var theme: ThemeManager
 
     private var accent: Color { theme.resolvedAccent ?? Color.accentColor }
-    private var usesNativeCard: Bool { theme.skin == .light || theme.skin == .dark }
+    private var usesNativeCard: Bool { theme.skin == .light || theme.skin == .dark || theme.skin == .system }
 
     private var statItems: [(label: String, value: String)] {
         [
@@ -36,7 +36,7 @@ struct CompactClaudeView: View {
     private var heroCard: some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                eyebrow("Time saved with VoiceInk")
+                eyebrow("Time saved with Whisper Pro")
 
                 Text(stats.timeSaved)
                     .font(.system(size: 40, weight: .bold))

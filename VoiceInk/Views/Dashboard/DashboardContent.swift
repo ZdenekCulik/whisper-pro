@@ -97,7 +97,6 @@ struct DashboardContent: View {
     @State private var isAccessibilityEnabled = AXIsProcessTrusted()
     @State private var isSystemInfoCopied = false
     @AppStorage("dashboardHeroVariant") private var heroVariant: DashboardHeroVariant = .compact
-    @EnvironmentObject private var themeManager: ThemeManager
 
     init(
         modelContext: ModelContext,
@@ -133,8 +132,6 @@ struct DashboardContent: View {
                         VStack(spacing: 24) {
                             DashboardGreeting()
 
-                            themeControlBar
-
                             licenseStatusMessage
 
                             heroSection
@@ -143,10 +140,7 @@ struct DashboardContent: View {
                                 accessibilityReminder
                             }
 
-                            HStack(alignment: .top, spacing: 18) {
-                                HelpAndResourcesSection()
-                                DashboardPromotionsSection(licenseState: licenseState)
-                            }
+                            DashboardPromotionsSection(licenseState: licenseState)
 
                             RecentTranscriptsSection()
 
@@ -266,7 +260,7 @@ struct DashboardContent: View {
         switch licenseState {
         case .unlicensed:
             TrialMessageView(
-                message: Text("Activate a license to continue using VoiceInk."),
+                message: Text("Activate a license to continue using Whisper Pro."),
                 type: .licenseRequired,
                 onAddLicenseKey: onAddLicenseKey
             )
@@ -278,7 +272,7 @@ struct DashboardContent: View {
             )
         case .trialExpired:
             TrialMessageView(
-                message: Text("Your trial has expired. Upgrade to continue using VoiceInk"),
+                message: Text("Your trial has expired. Upgrade to continue using Whisper Pro"),
                 type: .expired,
                 onAddLicenseKey: onAddLicenseKey
             )
@@ -287,44 +281,14 @@ struct DashboardContent: View {
         }
     }
     
-    // MARK: - Theme control bar
-
-    private var themeControlBar: some View {
-        HStack(spacing: 16) {
-            Picker("Skin", selection: $themeManager.skin) {
-                ForEach(AppSkin.allCases) { skin in
-                    Text(skin.displayName).tag(skin)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
-
-            Spacer(minLength: 12)
-
-            Picker("Font", selection: $themeManager.fontChoice) {
-                ForEach(AppFontChoice.allCases) { choice in
-                    Text(choice.displayName).tag(choice)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
-        .background(AppCardBackground(cornerRadius: 14))
-    }
-
     // MARK: - Hero
 
     /// Pre-formatted stats handed to the selected layout variant.
     /// Each variant renders the time-saved headline plus these four stats exactly once.
     private var dashboardStats: DashboardStats {
         DashboardStats(
-            timeSaved: hasLoadedStatsSnapshot ? formattedTimeSaved : String(localized: "VoiceInk Insights"),
-            sessions: hasLoadedStatsSnapshot ? "\(totalCount)" : "–",
+            timeSaved: hasLoadedStatsSnapshot ? formattedTimeSaved : String(localized: "Whisper Pro Insights"),
+            sessions: hasLoadedStatsSnapshot ? Formatters.formattedNumber(totalCount) : "–",
             words: hasLoadedStatsSnapshot ? Formatters.formattedNumber(totalWords) : "–",
             wordsPerMinute: hasLoadedStatsSnapshot && averageWordsPerMinute > 0
                 ? String(format: "%.0f", averageWordsPerMinute) : "–",
@@ -444,7 +408,7 @@ private struct DashboardAccessibilityReminder: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
-                Text("Required for VoiceInk shortcuts and app-wide controls to work properly.")
+                Text("Required for Whisper Pro shortcuts and app-wide controls to work properly.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)

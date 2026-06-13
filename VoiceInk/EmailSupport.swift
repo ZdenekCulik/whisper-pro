@@ -4,7 +4,7 @@ import AppKit
 
 struct EmailSupport {
     private static let supportEmailAddress = "support@tryvoiceink.com"
-    private static let supportEmailSubject = "VoiceInk Support Request"
+    private static let supportEmailSubject = "Whisper Pro Support Request"
 
     static func generateSupportEmailBody() -> String {
         let systemInfo = SystemInfoService.shared.getSystemInfoString()

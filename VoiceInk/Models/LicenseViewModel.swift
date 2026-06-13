@@ -107,7 +107,7 @@ class LicenseViewModel: ObservableObject {
         switch licenseState {
         case .unlicensed, .trialExpired:
             return String(
-                format: String(localized: "Your trial has ended. Upgrade to VoiceInk Pro at %@"),
+                format: String(localized: "Your trial has ended. Upgrade to Whisper Pro at %@"),
                 "tryvoiceink.com/buy"
             )
         case .trial, .licensed:

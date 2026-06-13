@@ -112,7 +112,7 @@ struct PermissionStepRow: View {
 
     private var restartHint: some View {
         HStack(spacing: 8) {
-            Text("Restart VoiceInk after enabling Screen Recording.")
+            Text("Restart Whisper Pro after enabling Screen Recording.")
                 .font(.system(size: 12))
                 .foregroundColor(AppTheme.Text.muted)
                 .fixedSize(horizontal: false, vertical: true)

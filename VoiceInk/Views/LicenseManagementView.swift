@@ -126,7 +126,7 @@ struct LicenseManagementView: View {
                 LicenseProMark()
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("VoiceInk Pro")
+                    Text("Whisper Pro")
                         .font(licenseTitleFont)
 
                     Text(trialSummary)
@@ -194,7 +194,7 @@ struct LicenseManagementView: View {
 
     private var activeLicenseCard: some View {
         LicenseActiveSummaryCard(
-            title: "VoiceInk Pro",
+            title: "Whisper Pro",
             subtitle: String(format: String(localized: "Version %@ (%@)"), appVersion, appBuild),
             licenseKey: licenseViewModel.licenseKey,
             didCopyLicenseKey: didCopyLicenseKey,
@@ -467,12 +467,12 @@ private struct ReportFeedbackBottomPanel: View {
         ZStack(alignment: .topTrailing) {
             VStack(spacing: 20) {
                 VStack(spacing: 18) {
-                    Text("Thank you for using VoiceInk")
+                    Text("Thank you for using Whisper Pro")
                         .font(.system(size: 24, weight: .semibold))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text("Have feedback, a bug report, or something that feels off? Send a note with system information by email, or join Discord for community discussion. Every report helps make VoiceInk more reliable and easier to use.")
+                    Text("Have feedback, a bug report, or something that feels off? Send a note with system information by email, or join Discord for community discussion. Every report helps make Whisper Pro more reliable and easier to use.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)

@@ -32,7 +32,7 @@ struct DreamOverviewView: View {
     private func content(accent: Color) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Time saved with VoiceInk".uppercased())
+                Text("Time saved with Whisper Pro".uppercased())
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(0.1)
                     .foregroundColor(theme.resolvedSecondaryText)
@@ -53,19 +53,17 @@ struct DreamOverviewView: View {
                 columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)],
                 spacing: 16
             ) {
-                statCell("Sessions", stats.sessions, accent)
-                statCell("Words", stats.words, accent)
-                statCell("Words / min", stats.wordsPerMinute, accent)
-                statCell("Keystrokes", stats.keystrokes, accent)
+                statCell("Sessions", stats.sessions, "waveform", accent)
+                statCell("Words", stats.words, "textformat", accent)
+                statCell("Words / min", stats.wordsPerMinute, "speedometer", accent)
+                statCell("Keystrokes", stats.keystrokes, "keyboard", accent)
             }
         }
     }
 
-    private func statCell(_ label: String, _ value: String, _ accent: Color) -> some View {
+    private func statCell(_ label: String, _ value: String, _ icon: String, _ accent: Color) -> some View {
         HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(accent.opacity(0.9))
-                .frame(width: 3, height: 30)
+            DashboardIconGlyph(systemName: icon, color: accent, size: 15, frameSize: 30)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(value)
@@ -141,7 +139,7 @@ struct DreamImage: View {
 
     private var fallbackColors: [Color] {
         switch skin {
-        case .light:
+        case .light, .system:
             return [Color(red: 0.96, green: 0.92, blue: 0.98), Color(red: 0.88, green: 0.95, blue: 0.93)]
         case .dark:
             return [Color(red: 0.20, green: 0.18, blue: 0.30), Color(red: 0.14, green: 0.22, blue: 0.26)]

@@ -205,8 +205,8 @@ class ImportExportService {
 
             let savePanel = NSSavePanel()
             savePanel.allowedContentTypes = [UTType.json]
-            savePanel.nameFieldStringValue = "VoiceInk_Settings_Backup.json"
-            savePanel.title = String(localized: "Export VoiceInk Settings")
+            savePanel.nameFieldStringValue = "WhisperPro_Settings_Backup.json"
+            savePanel.title = String(localized: "Export Whisper Pro Settings")
             savePanel.message = String(localized: "Choose a location to save your settings.")
 
             DispatchQueue.main.async {
@@ -235,7 +235,7 @@ class ImportExportService {
         openPanel.canChooseFiles = true
         openPanel.canChooseDirectories = false
         openPanel.allowsMultipleSelection = false
-        openPanel.title = String(localized: "Import VoiceInk Settings")
+        openPanel.title = String(localized: "Import Whisper Pro Settings")
         openPanel.message = String(localized: "Choose a settings backup, then select what you want to import.")
 
         guard openPanel.runModal() == .OK else {
@@ -341,7 +341,7 @@ class ImportExportService {
             if needsAPIKeyReminder {
                 informativeText += "\n\n" + String(localized: "IMPORTANT: If you were using AI enhancement features, please make sure to reconfigure your API keys in the AI Models section.")
             }
-            informativeText += "\n\n" + String(localized: "It is recommended to restart VoiceInk for all changes to take full effect.")
+            informativeText += "\n\n" + String(localized: "It is recommended to restart Whisper Pro for all changes to take full effect.")
             alert.informativeText = informativeText
             alert.alertStyle = .informational
             alert.addButton(withTitle: String(localized: "OK"))

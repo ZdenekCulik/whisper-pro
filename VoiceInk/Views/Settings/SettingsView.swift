@@ -13,6 +13,7 @@ struct SettingsView: View {
     @EnvironmentObject private var enhancementService: AIEnhancementService
     @ObservedObject private var mediaController = MediaController.shared
     @ObservedObject private var playbackController = PlaybackController.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
     @AppStorage("hasCompletedOnboardingV2") private var hasCompletedOnboardingV2 = true
     @AppStorage("enableAnnouncements") private var enableAnnouncements = true
     @AppStorage("restoreClipboardAfterPaste") private var restoreClipboardAfterPaste = true
@@ -146,7 +147,7 @@ struct SettingsView: View {
                     isExpanded: $isRestoreClipboardExpanded,
                     isEnabled: $restoreClipboardAfterPaste,
                     label: "Keep Clipboard Content",
-                    infoMessage: "VoiceInk temporarily uses the clipboard to paste transcription. When enabled, it restores your previous clipboard content after the selected delay. When disabled, the pasted transcription stays on your clipboard."
+                    infoMessage: "Whisper Pro temporarily uses the clipboard to paste transcription. When enabled, it restores your previous clipboard content after the selected delay. When disabled, the pasted transcription stays on your clipboard."
                 ) {
                     Picker("Restore Delay", selection: $clipboardRestoreDelay) {
                         Text("250ms").tag(0.25)
@@ -180,6 +181,20 @@ struct SettingsView: View {
             }
 
             Section("Interface") {
+                Picker("Appearance", selection: $themeManager.skin) {
+                    ForEach(AppSkin.allCases) { skin in
+                        Text(skin.displayName).tag(skin)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Picker("Font", selection: $themeManager.fontChoice) {
+                    ForEach(AppFontChoice.allCases) { choice in
+                        Text(choice.displayName).tag(choice)
+                    }
+                }
+                .pickerStyle(.segmented)
+
                 Picker("Recorder Style", selection: $recorderUIManager.recorderPanelStyle) {
                     ForEach(RecorderPanelStyle.allCases) { style in
                         Text(style.displayName).tag(style)
@@ -226,12 +241,29 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Help & Resources") {
+                Link(destination: URL(string: "https://tryvoiceink.com/recommended-models")!) {
+                    Label("Recommended Models", systemImage: "sparkles")
+                }
+                Link(destination: URL(string: "https://www.youtube.com/@tryvoiceink/videos")!) {
+                    Label("YouTube Videos & Guides", systemImage: "video.fill")
+                }
+                Link(destination: URL(string: "https://tryvoiceink.com/docs")!) {
+                    Label("Documentation", systemImage: "book.fill")
+                }
+                Button {
+                    EmailSupport.openSupportEmail()
+                } label: {
+                    Label("Feedback or Issues?", systemImage: "exclamationmark.bubble.fill")
+                }
+            }
+
             Section {
                 AudioCleanupSettingsView()
             } header: {
                 Text("Privacy")
             } footer: {
-                Text("Control how VoiceInk handles your transcription data and audio recordings.")
+                Text("Control how Whisper Pro handles your transcription data and audio recordings.")
             }
 
             Section {
