@@ -19,6 +19,11 @@ class VoiceInkEngine: NSObject, ObservableObject {
     @Published var recordingState: RecordingState = .idle
     @Published var shouldCancelRecording = false
     @Published var partialTranscript: String = ""
+    // Stable already-committed text (won't be rewritten) vs the in-progress tail that
+    // streaming providers keep revising. Splitting them lets the widget keep committed
+    // text steady and only dim the unstable tail, which kills the "jumping" effect.
+    @Published var committedTranscript: String = ""
+    @Published var partialTail: String = ""
     var currentSession: TranscriptionSession?
     private var currentSessionTranscriptionConfiguration: TranscriptionRuntimeConfiguration?
     private var activeRecordingStartID: UUID?
@@ -228,14 +233,18 @@ class VoiceInkEngine: NSObject, ObservableObject {
                             if self.serviceRegistry.shouldUseRealtimeTranscription(for: transcriptionConfiguration) {
                                 let session = self.serviceRegistry.createSession(
                                     for: transcriptionConfiguration,
-                                    onPartialTranscript: { [weak self] partial in
+                                    onPartialTranscript: { [weak self] committed, partial in
                                         Task { @MainActor in
                                             guard let self,
                                                   self.activeRecordingStartID == startID,
                                                   self.recordingState == .recording else {
                                                 return
                                             }
-                                            self.partialTranscript = partial
+                                            self.committedTranscript = committed
+                                            self.partialTail = partial
+                                            self.partialTranscript = [committed, partial]
+                                                .filter { !$0.isEmpty }
+                                                .joined(separator: " ")
                                         }
                                     }
                                 )

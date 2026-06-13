@@ -196,7 +196,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         VStack(spacing: 0) {
             if displayState == .liveText {
                 Divider().background(Color.white.opacity(0.15))
-                LiveTranscriptView(text: stateProvider.partialTranscript)
+                LiveTranscriptView(committed: stateProvider.committedTranscript, partial: stateProvider.partialTail)
                     .padding(.horizontal, 8)
             }
         }

@@ -87,13 +87,14 @@ class StreamingTranscriptionService {
     private var committedSegments: [String] = []
     private let modelContext: ModelContext
     private let fluidAudioService: FluidAudioTranscriptionService?
-    private var onPartialTranscript: ((String) -> Void)?
+    // (committedText, partialTail): committed stays stable, tail is the revising part.
+    private var onPartialTranscript: ((String, String) -> Void)?
     private let metrics = StreamingMetrics()
     private var stopStartedAt: Date?
     private var firstPartialLogged = false
     private var firstCommitLogged = false
 
-    init(modelContext: ModelContext, fluidAudioService: FluidAudioTranscriptionService? = nil, onPartialTranscript: ((String) -> Void)? = nil) {
+    init(modelContext: ModelContext, fluidAudioService: FluidAudioTranscriptionService? = nil, onPartialTranscript: ((String, String) -> Void)? = nil) {
         self.modelContext = modelContext
         self.fluidAudioService = fluidAudioService
         self.onPartialTranscript = onPartialTranscript
@@ -287,7 +288,8 @@ class StreamingTranscriptionService {
                         // Refresh the live preview so it keeps showing the full running transcript
                         // after a commit (instead of resetting to empty until the next partial).
                         if self.state == .streaming {
-                            self.onPartialTranscript?(self.committedSegments.joined(separator: " "))
+                            // Everything just got committed; no unstable tail remains.
+                            self.onPartialTranscript?(self.committedSegments.joined(separator: " "), "")
                         }
                         if self.state == .committing {
                             self.commitSignal?.yield()
@@ -301,16 +303,24 @@ class StreamingTranscriptionService {
                         }
                         if self.state == .streaming {
                             let prefix = self.committedSegments.joined(separator: " ")
-                            let display: String
+                            let committed: String
+                            let tail: String
                             if prefix.isEmpty {
-                                display = text
-                            } else if text.hasPrefix(prefix) || text.hasPrefix(prefix + " ") {
-                                // Provider already sends cumulative partials (e.g. FluidAudio fullText).
-                                display = text
+                                committed = ""
+                                tail = text
+                            } else if text.hasPrefix(prefix + " ") {
+                                // Provider sends cumulative partials: split off the committed prefix
+                                // so only the genuinely new tail is treated as unstable.
+                                committed = prefix
+                                tail = String(text.dropFirst(prefix.count + 1))
+                            } else if text.hasPrefix(prefix) {
+                                committed = prefix
+                                tail = String(text.dropFirst(prefix.count))
                             } else {
-                                display = prefix + " " + text
+                                committed = prefix
+                                tail = text
                             }
-                            self.onPartialTranscript?(display)
+                            self.onPartialTranscript?(committed, tail)
                         }
                     }
                 case .sessionStarted:

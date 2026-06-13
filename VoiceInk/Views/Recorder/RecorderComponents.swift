@@ -302,14 +302,33 @@ struct RecorderModeButton: View {
 // MARK: - Live Transcript View
 
 struct LiveTranscriptView: View {
-    let text: String
+    // Committed words are stable; the tail is what streaming keeps revising. Rendering
+    // committed at full opacity and the tail dimmed means only the faint tail visibly
+    // shifts as it settles, instead of the whole line jumping on every update.
+    let committed: String
+    let partial: String
+
+    init(committed: String, partial: String = "") {
+        self.committed = committed
+        self.partial = partial
+    }
+    init(text: String) {
+        self.committed = text
+        self.partial = ""
+    }
+
+    private var styledText: Text {
+        let committedText = Text(committed).foregroundColor(.white.opacity(0.9))
+        guard !partial.isEmpty else { return committedText }
+        let spacer = committed.isEmpty ? Text("") : Text(" ")
+        return committedText + spacer + Text(partial).foregroundColor(.white.opacity(0.4))
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                Text(text)
+                styledText
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.8))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
@@ -327,9 +346,8 @@ struct LiveTranscriptView: View {
                     endPoint: .bottom
                 )
             )
-            .onChange(of: text) {
-                proxy.scrollTo("bottom", anchor: .bottom)
-            }
+            .onChange(of: committed) { proxy.scrollTo("bottom", anchor: .bottom) }
+            .onChange(of: partial) { proxy.scrollTo("bottom", anchor: .bottom) }
         }
         .transaction { $0.disablesAnimations = true }
     }

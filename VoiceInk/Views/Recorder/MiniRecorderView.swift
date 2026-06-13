@@ -73,7 +73,7 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     private var transcriptSection: some View {
         VStack(spacing: 0) {
             if hasLiveTranscript {
-                LiveTranscriptView(text: stateProvider.partialTranscript)
+                LiveTranscriptView(committed: stateProvider.committedTranscript, partial: stateProvider.partialTail)
                 Divider().background(Color.white.opacity(0.15))
             }
         }
