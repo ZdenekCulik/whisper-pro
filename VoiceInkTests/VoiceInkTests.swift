@@ -10,8 +10,14 @@ import Testing
 
 struct VoiceInkTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @Test func dashboardHeroVariantsCoverV1ThroughV8() async throws {
+        #expect(DashboardHeroVariant.allCases.map(\.rawValue) == Array(1...8))
+        #expect(DashboardHeroVariant.allCases.map(\.label) == (1...8).map { "V\($0)" })
+    }
+
+    @Test func dashboardHeroVariantFallsBackToV1ForInvalidStoredValue() async throws {
+        #expect(DashboardHeroVariant(storedValue: 0) == .editorialClaude)
+        #expect(DashboardHeroVariant(storedValue: 99) == .editorialClaude)
     }
 
 }

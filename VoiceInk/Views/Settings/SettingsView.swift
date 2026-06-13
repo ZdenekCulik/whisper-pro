@@ -16,6 +16,7 @@ struct SettingsView: View {
     @AppStorage("hasCompletedOnboardingV2") private var hasCompletedOnboardingV2 = true
     @AppStorage("enableAnnouncements") private var enableAnnouncements = true
     @AppStorage("restoreClipboardAfterPaste") private var restoreClipboardAfterPaste = true
+    @AppStorage("dashboardHeroVariant") private var dashboardLayout: DashboardHeroVariant = .compact
     @AppStorage("clipboardRestoreDelay") private var clipboardRestoreDelay = 2.0
     @AppStorage(PasteMethod.userDefaultsKey) private var pasteMethodRawValue = PasteMethod.standard.rawValue
     @State private var showResetOnboardingAlert = false
@@ -186,6 +187,12 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
 
+                Picker("Dashboard Layout", selection: $dashboardLayout) {
+                    ForEach(DashboardHeroVariant.allCases) { layout in
+                        Text(layout.label).tag(layout)
+                    }
+                }
+                .pickerStyle(.segmented)
             }
 
             Section("General") {

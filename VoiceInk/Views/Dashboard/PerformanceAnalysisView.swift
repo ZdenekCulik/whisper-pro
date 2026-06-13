@@ -204,7 +204,7 @@ struct PerformanceAnalysisView: View {
     private var systemInfoSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("System Information")
-                .font(.system(.title2, design: .default, weight: .bold))
+                .font(.system(.title2, weight: .bold))
                 .foregroundColor(.primary)
 
             HStack(spacing: 12) {
@@ -218,7 +218,7 @@ struct PerformanceAnalysisView: View {
     private var transcriptionPerformanceSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Transcription Models")
-                .font(.system(.title2, design: .default, weight: .bold))
+                .font(.system(.title2, weight: .bold))
                 .foregroundColor(.primary)
 
             LazyVGrid(columns: columns, spacing: 16) {
@@ -232,7 +232,7 @@ struct PerformanceAnalysisView: View {
     private var enhancementPerformanceSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Enhancement Models")
-                .font(.system(.title2, design: .default, weight: .bold))
+                .font(.system(.title2, weight: .bold))
                 .foregroundColor(.primary)
 
             LazyVGrid(columns: columns, spacing: 16) {
@@ -266,7 +266,7 @@ struct SummaryCard: View {
                 .foregroundColor(color)
             
             Text(value)
-                .font(.system(.title2, design: .rounded, weight: .bold))
+                .font(.system(.title2, weight: .bold))
                 .foregroundColor(.primary)
             
             Text(label)
@@ -309,7 +309,7 @@ struct SystemInfoCard: View {
                 .textCase(.uppercase)
             
             Text(value)
-                .font(.system(.body, design: .default, weight: .semibold))
+                .font(.system(.body, weight: .semibold))
                 .foregroundColor(.primary)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -347,7 +347,7 @@ struct TranscriptionModelCard: View {
                 // Main metric: Speed Factor
                 VStack {
                     Text(String(format: "%.1fx", modelStat.speedFactor))
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundColor(AppTheme.Data.enhancement)
                     Text("Faster than Real-time")
                         .font(.caption)
@@ -410,7 +410,7 @@ struct EnhancementModelCard: View {
             
             VStack(alignment: .center) {
                 Text(String(format: "%.2f s", modelStat.avgProcessingTime))
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundColor(AppTheme.Data.transcript)
                 Text("Avg. Enhancement Time")
                     .font(.caption)

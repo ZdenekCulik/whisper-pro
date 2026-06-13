@@ -96,6 +96,8 @@ struct DashboardContent: View {
     @State private var isModelStatsPanelPresented = false
     @State private var isAccessibilityEnabled = AXIsProcessTrusted()
     @State private var isSystemInfoCopied = false
+    @AppStorage("dashboardHeroVariant") private var heroVariant: DashboardHeroVariant = .compact
+    @EnvironmentObject private var themeManager: ThemeManager
 
     init(
         modelContext: ModelContext,
@@ -129,6 +131,10 @@ struct DashboardContent: View {
                 GeometryReader { geometry in
                     ScrollView {
                         VStack(spacing: 24) {
+                            DashboardGreeting()
+
+                            themeControlBar
+
                             licenseStatusMessage
 
                             heroSection
@@ -137,12 +143,12 @@ struct DashboardContent: View {
                                 accessibilityReminder
                             }
 
-                            voiceInkStatsSection
-
                             HStack(alignment: .top, spacing: 18) {
                                 HelpAndResourcesSection()
                                 DashboardPromotionsSection(licenseState: licenseState)
                             }
+
+                            RecentTranscriptsSection()
 
                             Spacer(minLength: 20)
 
@@ -281,89 +287,59 @@ struct DashboardContent: View {
         }
     }
     
-    private var heroSection: some View {
-        VStack(spacing: 10) {
-            HStack {
-                Spacer(minLength: 0)
+    // MARK: - Theme control bar
 
-                if hasLoadedStatsSnapshot {
-                    let highlightedTime = Text(formattedTimeSaved)
-                        .fontWeight(.black)
-                        .font(.system(size: 36, design: .rounded))
-                        .foregroundColor(.white)
-
-                    Text("You have saved \(highlightedTime) with VoiceInk")
-                        .fontWeight(.bold)
-                        .foregroundColor(.white.opacity(0.85))
-                        .font(.system(size: 30))
-                        .multilineTextAlignment(.center)
-                } else {
-                    Text("VoiceInk Insights")
-                        .font(.system(size: 32, weight: .black, design: .rounded))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
+    private var themeControlBar: some View {
+        HStack(spacing: 16) {
+            Picker("Skin", selection: $themeManager.skin) {
+                ForEach(AppSkin.allCases) { skin in
+                    Text(skin.displayName).tag(skin)
                 }
-                
-                Spacer(minLength: 0)
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-            
-            Text(heroSubtitle)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.white.opacity(0.85))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-            
-        }
-        .padding(28)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(heroGradient)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.08), radius: 30, x: 0, y: 16)
-    }
-    
-    private var voiceInkStatsSection: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 16)], spacing: 16) {
-            DashboardStatCard(
-                icon: "mic.fill",
-                title: "Sessions Recorded",
-                value: hasLoadedStatsSnapshot ? "\(totalCount)" : "–",
-                detail: "VoiceInk sessions completed",
-                color: AppTheme.Sidebar.audio
-            )
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
 
-            DashboardStatCard(
-                icon: "text.alignleft",
-                title: "Words Dictated",
-                value: hasLoadedStatsSnapshot ? Formatters.formattedNumber(totalWords) : "–",
-                detail: "words generated",
-                color: AppTheme.Sidebar.dictionary
-            )
-            
-            DashboardStatCard(
-                icon: "speedometer",
-                title: "Words Per Minute",
-                value: hasLoadedStatsSnapshot && averageWordsPerMinute > 0
-                    ? String(format: "%.1f", averageWordsPerMinute)
-                    : "–",
-                detail: "VoiceInk vs. typing by hand",
-                color: AppTheme.Sidebar.dashboard
-            )
-            
-            DashboardStatCard(
-                icon: "keyboard.fill",
-                title: "Keystrokes Saved",
-                value: hasLoadedStatsSnapshot ? Formatters.formattedNumber(totalKeystrokesSaved) : "–",
-                detail: "fewer keystrokes",
-                color: AppTheme.Sidebar.modes
-            )
+            Spacer(minLength: 12)
+
+            Picker("Font", selection: $themeManager.fontChoice) {
+                ForEach(AppFontChoice.allCases) { choice in
+                    Text(choice.displayName).tag(choice)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .background(AppCardBackground(cornerRadius: 14))
+    }
+
+    // MARK: - Hero
+
+    /// Pre-formatted stats handed to the selected layout variant.
+    /// Each variant renders the time-saved headline plus these four stats exactly once.
+    private var dashboardStats: DashboardStats {
+        DashboardStats(
+            timeSaved: hasLoadedStatsSnapshot ? formattedTimeSaved : String(localized: "VoiceInk Insights"),
+            sessions: hasLoadedStatsSnapshot ? "\(totalCount)" : "–",
+            words: hasLoadedStatsSnapshot ? Formatters.formattedNumber(totalWords) : "–",
+            wordsPerMinute: hasLoadedStatsSnapshot && averageWordsPerMinute > 0
+                ? String(format: "%.0f", averageWordsPerMinute) : "–",
+            keystrokes: hasLoadedStatsSnapshot ? Formatters.formattedNumber(totalKeystrokesSaved) : "–",
+            hasLoaded: hasLoadedStatsSnapshot
+        )
+    }
+
+    // Renders the layout chosen in Settings → Interface. No on-dashboard picker.
+    @ViewBuilder
+    private var heroSection: some View {
+        switch heroVariant {
+        case .compact: CompactClaudeView(stats: dashboardStats)
+        case .spotlight: SpotlightClaudeView(stats: dashboardStats)
+        case .image: DreamOverviewView(stats: dashboardStats)
         }
     }
 
@@ -421,31 +397,6 @@ struct DashboardContent: View {
     private var formattedTimeSaved: String {
         let formatted = Formatters.formattedDuration(timeSaved, style: .full, fallback: "Time savings coming soon")
         return formatted
-    }
-    
-    private var heroSubtitle: String {
-        guard hasLoadedStatsSnapshot else {
-            return String(localized: "Your usage summary will appear here.")
-        }
-
-        guard totalCount > 0 else {
-            return String(localized: "Your VoiceInk journey starts with your first recording.")
-        }
-
-        let wordsText = Formatters.formattedNumber(totalWords)
-        return String(localized: "Dictated \(wordsText) words across \(totalCount) sessions.")
-    }
-    
-    private var heroGradient: LinearGradient {
-        LinearGradient(
-            gradient: Gradient(colors: [
-                AppTheme.Accent.primary,
-                AppTheme.Accent.strong,
-                AppTheme.Accent.foreground
-            ]),
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
     }
     
     // MARK: - Computed Metrics

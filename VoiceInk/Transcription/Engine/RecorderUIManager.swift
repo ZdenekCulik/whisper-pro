@@ -62,6 +62,15 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     private weak var engine: VoiceInkEngine?
     private var recorder: Recorder?
 
+    /// Current engine recording state, for external commit/cancel decisions.
+    var currentRecordingState: RecordingState? { engine?.recordingState }
+
+    /// Commit the active recording and auto-send (Enter) after paste.
+    func commitWithAutoSend(modeId: UUID? = nil) async {
+        engine?.forceAutoSendOnCommit = true
+        await toggleRecorderPanel(modeId: modeId)
+    }
+
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "RecorderUIManager")
 
     init() {}

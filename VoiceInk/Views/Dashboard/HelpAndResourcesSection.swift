@@ -4,7 +4,7 @@ struct HelpAndResourcesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Help & Resources")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(.primary)
 
             VStack(alignment: .leading, spacing: 10) {

@@ -19,7 +19,7 @@ struct DashboardStatCard: View {
             }
             
             Text(value)
-                .font(.system(size: 24, weight: .black, design: .rounded))
+                .font(.system(size: 24, weight: .black))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             

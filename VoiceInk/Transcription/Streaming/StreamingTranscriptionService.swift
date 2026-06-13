@@ -85,6 +85,9 @@ class StreamingTranscriptionService {
     private let chunkSource = AudioChunkSource()
     private var state: StreamingState = .idle
     private var committedSegments: [String] = []
+    // Last cumulative partial within the current (uncommitted) segment, used to
+    // detect which words have stabilised so the live preview can show them solid.
+    private var lastSegmentPartial: String = ""
     private let modelContext: ModelContext
     private let fluidAudioService: FluidAudioTranscriptionService?
     // (committedText, partialTail): committed stays stable, tail is the revising part.
@@ -119,6 +122,7 @@ class StreamingTranscriptionService {
         let start = Date()
         state = .connecting
         committedSegments = []
+        lastSegmentPartial = ""
         metrics.reset()
         firstPartialLogged = false
         firstCommitLogged = false
@@ -215,10 +219,27 @@ class StreamingTranscriptionService {
         }
 
         committedSegments = []
+        lastSegmentPartial = ""
         logger.notice("Streaming cancelled")
     }
 
     // MARK: - Private
+
+    /// Longest common prefix of two cumulative partials, cut back to the last
+    /// whitespace on a genuine mid-word divergence so a half-formed word stays in
+    /// the dim tail instead of flickering solid.
+    private static func stableCommonPrefix(_ a: String, _ b: String) -> String {
+        let ac = Array(a), bc = Array(b)
+        var i = 0
+        while i < ac.count && i < bc.count && ac[i] == bc[i] { i += 1 }
+        var cut = i
+        // Only back off when both strings have a differing character here (mid-word
+        // change). If one is simply a prefix of the other, keep the full overlap.
+        if i < ac.count && i < bc.count {
+            while cut > 0 && !bc[cut - 1].isWhitespace { cut -= 1 }
+        }
+        return String(bc[0..<cut])
+    }
 
     private func createProvider(for model: any TranscriptionModel) -> StreamingTranscriptionProvider {
         if model.provider == .fluidAudio {
@@ -285,6 +306,8 @@ class StreamingTranscriptionService {
                         if !trimmed.isEmpty {
                             self.committedSegments.append(trimmed)
                         }
+                        // A segment finalised; the next partial starts a fresh segment.
+                        self.lastSegmentPartial = ""
                         // Refresh the live preview so it keeps showing the full running transcript
                         // after a commit (instead of resetting to empty until the next partial).
                         if self.state == .streaming {
@@ -302,25 +325,20 @@ class StreamingTranscriptionService {
                             self.logger.notice("Streaming first partial event chars=\(text.count, privacy: .public)")
                         }
                         if self.state == .streaming {
-                            let prefix = self.committedSegments.joined(separator: " ")
-                            let committed: String
-                            let tail: String
-                            if prefix.isEmpty {
-                                committed = ""
-                                tail = text
-                            } else if text.hasPrefix(prefix + " ") {
-                                // Provider sends cumulative partials: split off the committed prefix
-                                // so only the genuinely new tail is treated as unstable.
-                                committed = prefix
-                                tail = String(text.dropFirst(prefix.count + 1))
-                            } else if text.hasPrefix(prefix) {
-                                committed = prefix
-                                tail = String(text.dropFirst(prefix.count))
-                            } else {
-                                committed = prefix
-                                tail = text
-                            }
-                            self.onPartialTranscript?(committed, tail)
+                            // Already-committed whole segments are always stable (solid).
+                            let committedPrefix = self.committedSegments.joined(separator: " ")
+                            // Within the current segment, the part of the cumulative partial that
+                            // stayed identical since the previous partial has stabilised → solid.
+                            // The revising remainder is the dim tail. (Soniox keeps finalised
+                            // tokens fixed, so this tracks `is_final` without needing the flag.)
+                            let stable = Self.stableCommonPrefix(self.lastSegmentPartial, text)
+                            self.lastSegmentPartial = text
+                            let tail = String(text.dropFirst(stable.count))
+
+                            let committed = [committedPrefix, stable.trimmingCharacters(in: .whitespaces)]
+                                .filter { !$0.isEmpty }
+                                .joined(separator: " ")
+                            self.onPartialTranscript?(committed, tail.trimmingCharacters(in: .whitespaces))
                         }
                     }
                 case .sessionStarted:
@@ -380,5 +398,6 @@ class StreamingTranscriptionService {
         provider = nil
         state = .idle
         committedSegments = []
+        lastSegmentPartial = ""
     }
 }

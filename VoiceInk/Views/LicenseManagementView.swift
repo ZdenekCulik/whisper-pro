@@ -335,7 +335,7 @@ struct LicenseActiveSummaryCard<Actions: View>: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
-                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                        .font(.system(size: 28, weight: .semibold))
 
                     Text(subtitle)
                         .font(.subheadline)
@@ -468,7 +468,7 @@ private struct ReportFeedbackBottomPanel: View {
             VStack(spacing: 20) {
                 VStack(spacing: 18) {
                     Text("Thank you for using VoiceInk")
-                        .font(.system(size: 24, weight: .semibold, design: .rounded))
+                        .font(.system(size: 24, weight: .semibold))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
 

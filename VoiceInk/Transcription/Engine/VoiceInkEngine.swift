@@ -24,6 +24,9 @@ class VoiceInkEngine: NSObject, ObservableObject {
     // text steady and only dim the unstable tail, which kills the "jumping" effect.
     @Published var committedTranscript: String = ""
     @Published var partialTail: String = ""
+    // Set when the recording is committed via Return: forces an Enter auto-send
+    // after paste for this delivery only (so the hotkey still just pastes).
+    var forceAutoSendOnCommit = false
     var currentSession: TranscriptionSession?
     private var currentSessionTranscriptionConfiguration: TranscriptionRuntimeConfiguration?
     private var activeRecordingStartID: UUID?
@@ -382,8 +385,18 @@ class VoiceInkEngine: NSObject, ObservableObject {
                     contextStore?.snapshot
                 }
             },
-            outputConfiguration: {
-                ModeRuntimeResolver.outputConfiguration()
+            outputConfiguration: { [weak self] in
+                let config = ModeRuntimeResolver.outputConfiguration()
+                // Committed via Return → force Enter auto-send (paste path only).
+                if self?.forceAutoSendOnCommit == true, config.outputMode == .paste {
+                    return OutputRuntimeConfiguration(
+                        mode: config.mode,
+                        outputMode: config.outputMode,
+                        autoSendKey: .enter,
+                        customCommand: config.customCommand
+                    )
+                }
+                return config
             },
             onStateChange: { [weak self] state in
                 guard let self, self.activePipelineTranscriptionID == transcriptionID else { return }
@@ -429,6 +442,8 @@ class VoiceInkEngine: NSObject, ObservableObject {
                 }
             )
         )
+
+        forceAutoSendOnCommit = false
 
         let didFinishActivePipeline = activePipelineTranscriptionID == transcriptionID
         if didFinishActivePipeline {

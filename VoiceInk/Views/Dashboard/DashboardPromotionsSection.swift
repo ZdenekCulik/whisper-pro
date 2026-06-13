@@ -121,7 +121,7 @@ private struct DashboardPromotionCard: View {
                     .foregroundColor(.white)
 
                 Text(title)
-                    .font(.system(size: 20, weight: .heavy, design: .rounded))
+                    .font(.system(size: 20, weight: .heavy))
                     .foregroundColor(.white)
                     .fixedSize(horizontal: false, vertical: true)
 

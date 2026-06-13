@@ -56,6 +56,24 @@ class WordReplacementService {
             }
         }
 
+        // Collapse "/ word" → "/word" so a bare "lomeno" before any word
+        // produces a clean slash command (e.g. "/ compact" → "/compact").
+        if let slashRegex = try? NSRegularExpression(pattern: "/\\s+(?=\\S)") {
+            let range = NSRange(modifiedText.startIndex..., in: modifiedText)
+            modifiedText = slashRegex.stringByReplacingMatches(
+                in: modifiedText, options: [], range: range, withTemplate: "/"
+            )
+        }
+
+        // Drop a period right after a slash command (e.g. "/compact." → "/compact"),
+        // because the trailing dot stops it being recognised as a command.
+        if let dotRegex = try? NSRegularExpression(pattern: "(/[\\p{L}\\p{N}:_-]+)\\.") {
+            let range = NSRange(modifiedText.startIndex..., in: modifiedText)
+            modifiedText = dotRegex.stringByReplacingMatches(
+                in: modifiedText, options: [], range: range, withTemplate: "$1"
+            )
+        }
+
         return modifiedText
     }
 

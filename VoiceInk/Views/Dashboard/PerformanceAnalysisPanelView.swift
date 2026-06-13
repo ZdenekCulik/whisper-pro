@@ -82,7 +82,7 @@ struct PerformanceAnalysisPanelView: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(color)
             Text(value)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.primary)
             Text(label)
                 .font(.system(size: 10))
@@ -170,7 +170,7 @@ struct PerformanceAnalysisPanelView: View {
             // Hero metric
             VStack(spacing: 3) {
                 Text(String(format: "%.1fx", modelStat.speedFactor))
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundColor(AppTheme.Data.enhancement)
                 Text("Faster than Real-time")
                     .font(.system(size: 10))
@@ -243,7 +243,7 @@ struct PerformanceAnalysisPanelView: View {
             // Hero metric
             VStack(spacing: 3) {
                 Text(String(format: "%.2f s", modelStat.avgProcessingTime))
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundColor(AppTheme.Data.transcript)
                 Text("Avg. Enhancement Time")
                     .font(.system(size: 10))

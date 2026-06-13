@@ -318,7 +318,7 @@ struct LiveTranscriptView: View {
     }
 
     private var styledText: Text {
-        let committedText = Text(committed).foregroundColor(.white.opacity(0.9))
+        let committedText = Text(committed).foregroundColor(.white)
         guard !partial.isEmpty else { return committedText }
         let spacer = committed.isEmpty ? Text("") : Text(" ")
         return committedText + spacer + Text(partial).foregroundColor(.white.opacity(0.4))

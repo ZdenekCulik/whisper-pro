@@ -75,6 +75,9 @@ final class RecorderPanelShortcutManager: ObservableObject {
             shortcuts[.recorderPanelEscape] = .key(keyCode: UInt16(kVK_Escape), modifierFlags: [])
         }
 
+        // Return commits the recording (stops + transcribes + pastes)
+        shortcuts[.recorderPanelCommit] = .key(keyCode: UInt16(kVK_Return), modifierFlags: [])
+
         if canUseModeShortcuts {
             for (index, keyCode) in Self.digitKeyCodes.enumerated() {
                 shortcuts[.recorderPanelMode(index)] = .key(
@@ -104,6 +107,9 @@ final class RecorderPanelShortcutManager: ObservableObject {
             await recorderUIManager.cancelRecording()
         case .recorderPanelEscape:
             await handleEscapeShortcut()
+        case .recorderPanelCommit:
+            guard recorderUIManager.currentRecordingState == .recording else { return }
+            await recorderUIManager.commitWithAutoSend()
         case .recorderPanelMode(let index):
             handleModeSelectionShortcut(index: index)
         default:

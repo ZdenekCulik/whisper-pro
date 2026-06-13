@@ -122,6 +122,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         GeometryReader { geo in
             pill.position(x: geo.size.width / 2, y: pillHeight / 2)
         }
+        .background(NotchPanelMouseEventSync(ignoresMouseEvents: displayState == .collapsed))
         .animation(pillAnimation, value: displayState)
     }
 
@@ -152,13 +153,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             HStack(spacing: 14) {
                 if shouldShowCloseButton {
                     RecorderCloseButton(action: onCloseTapped)
-                } else {
-                    RecorderRecordButton(
-                        recordingState: stateProvider.recordingState,
-                        action: onRecordButtonTapped
-                    )
                 }
-                RecorderModeButton(buttonSize: 20, padding: EdgeInsets())
                 Spacer(minLength: 0)
             }
             .padding(.leading, sideEdgePadding)
@@ -217,5 +212,23 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         }
         .frame(height: displayState == .assistant ? assistantPanelHeight : 0)
         .clipped()
+    }
+}
+
+private struct NotchPanelMouseEventSync: NSViewRepresentable {
+    let ignoresMouseEvents: Bool
+
+    func makeNSView(context: Context) -> NSView {
+        NSView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            nsView.window?.ignoresMouseEvents = ignoresMouseEvents
+        }
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: ()) {
+        nsView.window?.ignoresMouseEvents = false
     }
 }

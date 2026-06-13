@@ -182,7 +182,7 @@ private struct ModelPerformancePanelContent: View {
 
             VStack(spacing: 3) {
                 Text(String(format: "%.1fx", stat.speedFactor))
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundColor(AppTheme.Data.enhancement)
                 Text(stat.speedFactor >= 1.0 ? LocalizedStringKey("Faster than Real-time") : LocalizedStringKey("Slower than Real-time"))
                     .font(.system(size: 10))
@@ -250,7 +250,7 @@ private struct ModelPerformancePanelContent: View {
 
             VStack(spacing: 3) {
                 Text(String(format: "%.2fs", stat.avgDuration))
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundColor(AppTheme.Data.transcript)
                 Text("Avg. Enhancement Time")
                     .font(.system(size: 10))

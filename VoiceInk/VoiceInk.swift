@@ -264,7 +264,9 @@ struct VoiceInkApp: App {
         WindowGroup {
             Group {
                 if hasCompletedOnboardingV2 {
-                    ContentView()
+                    ThemedRootView {
+                        ContentView()
+                    }
                         .environmentObject(engine)
                         .environmentObject(whisperModelManager)
                         .environmentObject(fluidAudioModelManager)
@@ -275,6 +277,7 @@ struct VoiceInkApp: App {
                         .environmentObject(menuBarManager)
                         .environmentObject(aiService)
                         .environmentObject(enhancementService)
+                        .environmentObject(ThemeManager.shared)
                         .modelContainer(container)
                         .onAppear {
                             if enableAnnouncements {
@@ -420,6 +423,21 @@ struct CheckForUpdatesView: View {
     var body: some View {
         Button("Check for Updates…", action: updaterViewModel.checkForUpdates)
             .disabled(!updaterViewModel.canCheckForUpdates)
+    }
+}
+
+/// Observes ThemeManager and applies skin + font live to the main window content.
+/// Light/Dark keep the current look (nil overrides); Warm/Midnight paint a background and tint.
+struct ThemedRootView<Content: View>: View {
+    @ObservedObject private var theme = ThemeManager.shared
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .background(theme.resolvedBackground.map { AnyView($0.ignoresSafeArea()) } ?? AnyView(Color.clear))
+            .preferredColorScheme(theme.skin.colorScheme)
+            .tint(theme.resolvedAccent)
+            .fontDesign(theme.fontDesign)
     }
 }
 

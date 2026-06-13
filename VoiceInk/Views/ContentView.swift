@@ -19,6 +19,7 @@ struct ContentView: View {
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "ContentView")
     private static let detailBackgroundTintOpacity = 0.50
     @State private var selectedView: ViewType = .dashboard
+    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         HStack(spacing: 0) {
@@ -57,10 +58,17 @@ struct ContentView: View {
                 blendingMode: .behindWindow
             )
 
-            AppTheme.Surface.window
-                .opacity(Self.detailBackgroundTintOpacity)
+            if let skinBackground = theme.resolvedBackground {
+                // Warm/Midnight: paint the skin background opaquely over the blur.
+                skinBackground
+            } else {
+                // Light/Dark: keep the original translucent window tint.
+                AppTheme.Surface.window
+                    .opacity(Self.detailBackgroundTintOpacity)
+            }
         }
         .ignoresSafeArea(.container, edges: .top)
+        .allowsHitTesting(false)
     }
     
     @ViewBuilder
