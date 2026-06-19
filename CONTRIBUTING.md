@@ -1,10 +1,10 @@
-# Contributing to VoiceInk
+# Contributing to Whisper Pro
 
-First off, thank you for considering contributing to VoiceInk! It's people like you that make VoiceInk such a great tool.
+First off, thank you for considering contributing to Whisper Pro! It's people like you that make Whisper Pro such a great tool.
 
 ## ⚠️ Pull Requests Not Accepted
 
-**As of now, this project is not accepting pull requests.** VoiceInk is open source, and you're welcome to fork and modify it for your own use.
+**As of now, this project is not accepting pull requests.** Whisper Pro is open source, and you're welcome to fork and modify it for your own use.
 
 **You can still contribute by:**
 - 🐛 **Reporting bugs** - Open an issue with detailed information
@@ -75,4 +75,4 @@ If you have any questions or need clarification, feel free to:
 2. Start a discussion
 3. Reach out to the maintainers
 
-Thank you for contributing to VoiceInk! 🎉 
+Thank you for contributing to Whisper Pro! 🎉 

@@ -1,10 +1,20 @@
 # Define a directory for dependencies in the user's home folder
-DEPS_DIR := $(HOME)/VoiceInk-Dependencies
+DEPS_DIR := $(HOME)/WhisperPro-Dependencies
 WHISPER_CPP_DIR := $(DEPS_DIR)/whisper.cpp
 FRAMEWORK_PATH := $(WHISPER_CPP_DIR)/build-apple/whisper.xcframework
 LOCAL_DERIVED_DATA := $(CURDIR)/.local-build
 
-.PHONY: all clean whisper setup build local check healthcheck help dev run
+.PHONY: all clean whisper setup build local signed check healthcheck help dev run
+
+# Stable signed dev build: signed with your Apple Development cert so macOS
+# permissions (Accessibility, Microphone) survive every rebuild — grant once.
+SIGN_IDENTITY := Apple Development: culikzdenek@gmail.com (L9XPMVN7B8)
+DEV_TEAM := L9XPMVN7B8
+SIGNED_APP := /Applications/Whisper Pro.app
+# Build under the bundle id the app's live data (transcripts, stats, streak,
+# settings) already lives under, so the signed build keeps that history instead
+# of starting fresh under a separate identity.
+APP_BUNDLE_ID := com.prakashjoshipax.WhisperPro
 
 # Default target
 all: check build
@@ -42,53 +52,98 @@ setup: whisper
 	@echo "Please ensure your Xcode project references the framework from this new location."
 
 build: setup
-	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug CODE_SIGN_IDENTITY="" build
+	xcodebuild -project "Whisper Pro.xcodeproj" -scheme "Whisper Pro" -configuration Debug CODE_SIGN_IDENTITY="" build
 
 # Build for local use without Apple Developer certificate
 local: check setup
-	@echo "Building VoiceInk for local use (no Apple Developer certificate required)..."
+	@echo "Building Whisper Pro for local use (no Apple Developer certificate required)..."
 	@rm -rf "$(LOCAL_DERIVED_DATA)"
-	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug \
+	xcodebuild -project "Whisper Pro.xcodeproj" -scheme "Whisper Pro" -configuration Debug \
 		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
 		-xcconfig LocalBuild.xcconfig \
 		CODE_SIGN_IDENTITY="-" \
 		CODE_SIGNING_REQUIRED=NO \
 		CODE_SIGNING_ALLOWED=YES \
 		DEVELOPMENT_TEAM="" \
-		CODE_SIGN_ENTITLEMENTS="$(CURDIR)/VoiceInk/VoiceInk.local.entitlements" \
+		CODE_SIGN_ENTITLEMENTS="$(CURDIR)/Whisper Pro/WhisperPro.local.entitlements" \
 		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
 		build
-	@APP_PATH="$(LOCAL_DERIVED_DATA)/Build/Products/Debug/VoiceInk.app" && \
+	@APP_PATH="$(LOCAL_DERIVED_DATA)/Build/Products/Debug/Whisper Pro.app" && \
 	if [ -d "$$APP_PATH" ]; then \
-		echo "Copying VoiceInk.app to ~/Downloads..."; \
-		rm -rf "$$HOME/Downloads/VoiceInk.app"; \
-		ditto "$$APP_PATH" "$$HOME/Downloads/VoiceInk.app"; \
-		xattr -cr "$$HOME/Downloads/VoiceInk.app"; \
+		echo "Copying Whisper Pro.app to ~/Downloads..."; \
+		rm -rf "$$HOME/Downloads/Whisper Pro.app"; \
+		ditto "$$APP_PATH" "$$HOME/Downloads/Whisper Pro.app"; \
+		xattr -cr "$$HOME/Downloads/Whisper Pro.app"; \
 		echo ""; \
-		echo "Build complete! App saved to: ~/Downloads/VoiceInk.app"; \
-		echo "Run with: open ~/Downloads/VoiceInk.app"; \
+		echo "Build complete! App saved to: ~/Downloads/Whisper Pro.app"; \
+		echo "Run with: open ~/Downloads/Whisper Pro.app"; \
 		echo ""; \
 		echo "Limitations of local builds:"; \
 		echo "  - No iCloud dictionary sync"; \
 		echo "  - No automatic updates (pull new code and rebuild to update)"; \
 	else \
-		echo "Error: Could not find built VoiceInk.app at $$APP_PATH"; \
+		echo "Error: Could not find built Whisper Pro.app at $$APP_PATH"; \
 		exit 1; \
 	fi
 
+sync-api-keys:
+	@python3 -c "\
+import plistlib, os; \
+src_path = os.path.expanduser('~/Library/Preferences/com.prakashjoshipax.VoiceInk.plist'); \
+dst_path = os.path.expanduser('~/Library/Preferences/com.prakashjoshipax.WhisperPro.plist'); \
+keys = ['LocalKeychain_groqAPIKey', 'LocalKeychain_sonioxAPIKey']; \
+src = plistlib.load(open(src_path,'rb')) if os.path.exists(src_path) else {}; \
+dst = plistlib.load(open(dst_path,'rb')) if os.path.exists(dst_path) else {}; \
+[dst.update({k: src[k]}) or print(f'  synced {k}') for k in keys if k in src]; \
+plistlib.dump(dst, open(dst_path,'wb'), fmt=plistlib.FMT_BINARY) \
+" 2>/dev/null && echo "API keys synced from VoiceInk" || echo "API keys: nothing to sync"
+
+signed: check setup sync-api-keys
+	@echo "Building signed dev build (stable Apple Development signature)..."
+	@rm -rf "$(LOCAL_DERIVED_DATA)"
+	xcodebuild -project "Whisper Pro.xcodeproj" -scheme "Whisper Pro" -configuration Debug \
+		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
+		-xcconfig LocalBuild.xcconfig \
+		CODE_SIGN_IDENTITY="-" \
+		CODE_SIGNING_REQUIRED=NO \
+		CODE_SIGNING_ALLOWED=YES \
+		DEVELOPMENT_TEAM="" \
+		PRODUCT_BUNDLE_IDENTIFIER="$(APP_BUNDLE_ID)" \
+		CODE_SIGN_ENTITLEMENTS="$(CURDIR)/Whisper Pro/WhisperPro.local.entitlements" \
+		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
+		build
+	@APP_PATH="$(LOCAL_DERIVED_DATA)/Build/Products/Debug/Whisper Pro.app" && \
+	if [ ! -d "$$APP_PATH" ]; then echo "Error: build product not found"; exit 1; fi && \
+	echo "Killing any running instances..." && \
+	pkill -x "Whisper Pro" 2>/dev/null; pkill -x "Whisper" 2>/dev/null; sleep 1; \
+	echo "Installing to $(SIGNED_APP)..." && \
+	mkdir -p "$(SIGNED_APP)" && \
+	rsync -a --delete "$$APP_PATH/" "$(SIGNED_APP)/" && \
+	xattr -cr "$(SIGNED_APP)" && \
+	echo "Re-signing with your Apple Development cert..." && \
+	codesign --force --deep --options runtime \
+		--entitlements "$(CURDIR)/Whisper Pro/WhisperPro.local.entitlements" \
+		--sign "$(SIGN_IDENTITY)" "$(SIGNED_APP)" && \
+	echo "" && \
+	echo "Done. Launching $(SIGNED_APP)" && \
+	open "$(SIGNED_APP)" && \
+	echo "" && \
+	echo ">> First time only: grant Accessibility + Microphone to 'Whisper Pro Dev'." && \
+	echo ">> Every future 'make signed' keeps the same signature — no re-granting."
+
 # Run application
 run:
-	@if [ -d "$$HOME/Downloads/VoiceInk.app" ]; then \
-		echo "Opening ~/Downloads/VoiceInk.app..."; \
-		open "$$HOME/Downloads/VoiceInk.app"; \
+	@if [ -d "$$HOME/Downloads/Whisper Pro.app" ]; then \
+		echo "Opening ~/Downloads/Whisper Pro.app..."; \
+		open "$$HOME/Downloads/Whisper Pro.app"; \
 	else \
-		echo "Looking for VoiceInk.app in DerivedData..."; \
-		APP_PATH=$$(find "$$HOME/Library/Developer/Xcode/DerivedData" -name "VoiceInk.app" -type d | head -1) && \
+		echo "Looking for Whisper Pro.app in DerivedData..."; \
+		APP_PATH=$$(find "$$HOME/Library/Developer/Xcode/DerivedData" -name "Whisper Pro.app" -type d | head -1) && \
 		if [ -n "$$APP_PATH" ]; then \
 			echo "Found app at: $$APP_PATH"; \
 			open "$$APP_PATH"; \
 		else \
-			echo "VoiceInk.app not found. Please run 'make build' or 'make local' first."; \
+			echo "Whisper Pro.app not found. Please run 'make build' or 'make local' first."; \
 			exit 1; \
 		fi; \
 	fi
@@ -104,10 +159,10 @@ help:
 	@echo "Available targets:"
 	@echo "  check/healthcheck  Check if required CLI tools are installed"
 	@echo "  whisper            Clone and build whisper.cpp XCFramework"
-	@echo "  setup              Copy whisper XCFramework to VoiceInk project"
-	@echo "  build              Build the VoiceInk Xcode project"
+	@echo "  setup              Copy whisper XCFramework to Whisper Pro project"
+	@echo "  build              Build the Whisper Pro Xcode project"
 	@echo "  local              Build for local use (no Apple Developer certificate needed)"
-	@echo "  run                Launch the built VoiceInk app"
+	@echo "  run                Launch the built Whisper Pro app"
 	@echo "  dev                Build and run the app (for development)"
 	@echo "  all                Run full build process (default)"
 	@echo "  clean              Remove build artifacts"
