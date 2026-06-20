@@ -58,6 +58,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
 
     private var notchWindowManager: NotchWindowManager?
     private var miniWindowManager: MiniWindowManager?
+    private var coachDismissTask: Task<Void, Never>?
 
     private weak var engine: WhisperProEngine?
     private var recorder: Recorder?
@@ -152,6 +153,16 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                         Task { @MainActor in
                             await engine?.sendAssistantFollowUp(text)
                         }
+                    },
+                    onCoachDismiss: { [weak self] in
+                        Task { @MainActor in
+                            self?.dismissCoachSuggestionPanel()
+                        }
+                    },
+                    onCoachHover: { [weak self] hovering in
+                        Task { @MainActor in
+                            self?.setCoachSuggestionHovered(hovering)
+                        }
                     }
                 )
             }
@@ -190,6 +201,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
 
     func toggleRecorderPanel(modeId: UUID? = nil) async {
         guard let engine = engine else { return }
+        cancelCoachSuggestionDisplay()
 
         if isRecorderPanelVisible {
             switch engine.recordingState {
@@ -220,6 +232,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     func dismissRecorderPanel() async {
         guard let engine = engine else { return }
 
+        cancelCoachSuggestionDisplay()
         hideRecorderPanel()
         isRecorderPanelVisible = false
         engine.assistantSession.reset()
@@ -228,6 +241,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     func resetOnLaunch() async {
         guard let engine = engine else { return }
         logger.notice("Resetting recording state on launch")
+        cancelCoachSuggestionDisplay()
         await engine.resetRecordingSession()
         hideRecorderPanel()
         isRecorderPanelVisible = false
@@ -255,6 +269,12 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
             name: .dismissRecorderPanel,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleEnglishCoachCorrectionReady(_:)),
+            name: .englishCoachCorrectionReady,
+            object: nil
+        )
     }
 
     @objc public func handleToggleRecorderPanelNotification() {
@@ -272,5 +292,55 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                 await dismissRecorderPanel()
             }
         }
+    }
+
+    @objc public func handleEnglishCoachCorrectionReady(_ notification: Notification) {
+        guard let suggestion = notification.object as? CoachSuggestion else { return }
+        showCoachSuggestionPanel(suggestion)
+    }
+
+    private func showCoachSuggestionPanel(_ suggestion: CoachSuggestion) {
+        guard recorderPanelStyle == .mini else { return }
+        guard engine?.recordingState == .idle else { return }
+        guard engine?.assistantSession.isVisible != true else { return }
+
+        showRecorderPanel()
+        scheduleCoachSuggestionDismissal(for: suggestion)
+    }
+
+    /// While the mouse is over the coach card, pause the auto-dismiss so the user
+    /// can read it; restart the timer once the mouse leaves.
+    func setCoachSuggestionHovered(_ hovering: Bool) {
+        if hovering {
+            coachDismissTask?.cancel()
+            coachDismissTask = nil
+        } else if let suggestion = EnglishCoachService.shared.latestSuggestion {
+            scheduleCoachSuggestionDismissal(for: suggestion)
+        }
+    }
+
+    private func scheduleCoachSuggestionDismissal(for suggestion: CoachSuggestion) {
+        coachDismissTask?.cancel()
+        coachDismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            guard !Task.isCancelled else { return }
+            guard let self else { return }
+            guard EnglishCoachService.shared.latestSuggestion?.id == suggestion.id else { return }
+            guard self.engine?.recordingState == .idle,
+                  self.engine?.assistantSession.isVisible != true else { return }
+            self.dismissCoachSuggestionPanel()
+        }
+    }
+
+    private func dismissCoachSuggestionPanel() {
+        cancelCoachSuggestionDisplay()
+        hideRecorderPanel()
+        isRecorderPanelVisible = false
+    }
+
+    private func cancelCoachSuggestionDisplay() {
+        coachDismissTask?.cancel()
+        coachDismissTask = nil
+        EnglishCoachService.shared.clearSuggestion()
     }
 }

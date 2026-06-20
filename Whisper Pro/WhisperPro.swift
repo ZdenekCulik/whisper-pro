@@ -50,7 +50,8 @@ struct WhisperProApp: App {
             Transcription.self,
             VocabularyWord.self,
             WordReplacement.self,
-            SessionMetric.self
+            SessionMetric.self,
+            CoachNote.self
         ])
         let resolvedContainer: ModelContainer
 
@@ -92,6 +93,12 @@ struct WhisperProApp: App {
 
         let enhancementService = AIEnhancementService(aiService: aiService, modelContext: resolvedContainer.mainContext)
         _enhancementService = StateObject(wrappedValue: enhancementService)
+
+        // Ambient English coach: reuses the user's configured AI provider + the coach store.
+        EnglishCoachService.shared.configure(aiService: aiService, container: resolvedContainer)
+        #if LOCAL_BUILD
+        EnglishCoachService.shared.runLocalSmokeTestIfRequested()
+        #endif
 
         // 1. Create modelsDirectory URL
         let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -208,6 +215,7 @@ struct WhisperProApp: App {
         let defaultStoreURL = appSupportURL.appendingPathComponent("default.store")
         let dictionaryStoreURL = appSupportURL.appendingPathComponent("dictionary.store")
         let statsStoreURL = appSupportURL.appendingPathComponent("stats.store")
+        let coachStoreURL = appSupportURL.appendingPathComponent("coach.store")
 
         let transcriptSchema = Schema([Transcription.self])
         let transcriptConfig = ModelConfiguration(
@@ -236,8 +244,16 @@ struct WhisperProApp: App {
             cloudKitDatabase: .none
         )
 
+        let coachSchema = Schema([CoachNote.self])
+        let coachConfig = ModelConfiguration(
+            "coach",
+            schema: coachSchema,
+            url: coachStoreURL,
+            cloudKitDatabase: .none
+        )
+
         do {
-            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig)
+            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig, coachConfig)
         } catch {
             logger.error("❌ Failed to create persistent ModelContainer:\n\(Self.fullErrorDescription(error), privacy: .public)")
             throw error
@@ -254,8 +270,11 @@ struct WhisperProApp: App {
         let statsSchema = Schema([SessionMetric.self])
         let statsConfig = ModelConfiguration("stats", schema: statsSchema, isStoredInMemoryOnly: true)
 
+        let coachSchema = Schema([CoachNote.self])
+        let coachConfig = ModelConfiguration("coach", schema: coachSchema, isStoredInMemoryOnly: true)
+
         do {
-            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig)
+            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig, coachConfig)
         } catch {
             logger.error("❌ Failed to create in-memory ModelContainer:\n\(Self.fullErrorDescription(error), privacy: .public)")
             throw error

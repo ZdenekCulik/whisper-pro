@@ -86,6 +86,8 @@ struct InsightsData: Equatable {
     let modes: [ModeSlice]
     let wpmTrend: [TrendPoint]
     let wordsTrend: [TrendPoint]
+    /// Per-week count of AI-enhanced sessions, oldest first.
+    let enhancedTrend: [TrendPoint]
     /// Words dictated per hour-of-day, index 0...23.
     let hourBuckets: [TrendPoint]
     /// Apps you dictate into most, largest first.
@@ -181,6 +183,7 @@ extension InsightsData {
             modes: modes,
             wpmTrend: wpm.enumerated().map { TrendPoint(index: $0.offset, value: $0.element) },
             wordsTrend: words.enumerated().map { TrendPoint(index: $0.offset, value: $0.element) },
+            enhancedTrend: words.enumerated().map { TrendPoint(index: $0.offset, value: $0.element / 7) },
             hourBuckets: hours.enumerated().map { TrendPoint(index: $0.offset, value: $0.element) },
             topApps: apps,
             currentStreak: 2,

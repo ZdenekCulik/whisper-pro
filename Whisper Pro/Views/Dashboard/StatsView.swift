@@ -177,7 +177,7 @@ struct StatsView: View {
                     title: "Enhanced sessions",
                     subtitle: "AI improvement applied",
                     value: "\(data.enhancedSessions)",
-                    points: data.wpmTrend,
+                    points: data.enhancedTrend,
                     accent: accent
                 )
 
@@ -611,12 +611,10 @@ private struct StatsWordsTrendCard: View {
     }
 
     private func axisLabel(for index: Int) -> String {
-        switch index {
-        case 0: return "Mar"
-        case 4: return "Apr"
-        case 8: return "May"
-        default: return "Jun"
-        }
+        // index 11 == current week and each step back is one week earlier (matches
+        // InsightsLoader bucketing), so the labels track the real calendar month.
+        let date = Calendar.current.date(byAdding: .weekOfYear, value: index - 11, to: Date()) ?? Date()
+        return date.formatted(.dateTime.month(.abbreviated))
     }
 
     private func shortNumber(_ value: Double) -> String {

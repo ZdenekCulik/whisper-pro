@@ -32,6 +32,7 @@ enum InsightsLoader {
             var modeCounts: [String: Int] = [:]
             var weeklyWords = Array(repeating: 0, count: weeklyTrendCount)
             var weeklyDuration = Array(repeating: 0.0, count: weeklyTrendCount)
+            var weeklyEnhanced = Array(repeating: 0, count: weeklyTrendCount)
             var hourWordsToday = Array(repeating: 0, count: 24)
             var durationHourToday = Array(repeating: 0.0, count: 24)
             var wordsPerMonth: [Date: Int] = [:]
@@ -89,6 +90,9 @@ enum InsightsLoader {
                         let bucket = weeklyTrendCount - 1 - weeksAgo
                         weeklyWords[bucket] += metric.wordCount
                         weeklyDuration[bucket] += metric.audioDuration
+                        if metric.aiEnhancementModelName?.isEmpty == false {
+                            weeklyEnhanced[bucket] += 1
+                        }
                     }
 
                     let mc = calendar.dateComponents([.year, .month], from: metric.timestamp)
@@ -119,6 +123,9 @@ enum InsightsLoader {
                 let (words, duration) = pair
                 let wpm = duration > 0 ? Double(words) / (duration / 60.0) : 0
                 return InsightsData.TrendPoint(index: idx, value: wpm)
+            }
+            let enhancedTrend = weeklyEnhanced.enumerated().map {
+                InsightsData.TrendPoint(index: $0.offset, value: Double($0.element))
             }
             let hourBuckets = hourWords.enumerated().map {
                 InsightsData.TrendPoint(index: $0.offset, value: Double($0.element))
@@ -219,6 +226,7 @@ enum InsightsLoader {
                 modes: Array(modes),
                 wpmTrend: wpmTrend,
                 wordsTrend: wordsTrend,
+                enhancedTrend: enhancedTrend,
                 hourBuckets: hourBuckets,
                 topApps: Array(topApps),
                 currentStreak: current,
@@ -245,9 +253,12 @@ enum InsightsLoader {
             if day.count > 0 { run += 1; longest = max(longest, run) }
             else { run = 0 }
         }
-        // Current streak = trailing run of active days.
+        // Current streak = trailing run of active days. Skip today when it has no
+        // activity yet, so a streak ending yesterday still counts (you haven't
+        // necessarily dictated today).
         var current = 0
-        for day in days.reversed() {
+        let trailing = (days.last?.count == 0) ? days.dropLast() : days[...]
+        for day in trailing.reversed() {
             if day.count > 0 { current += 1 } else { break }
         }
         return (current, longest)

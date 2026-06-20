@@ -5,9 +5,12 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     @ObservedObject var recorder: Recorder
     @ObservedObject var assistantSession: AssistantSession
     @ObservedObject private var widgetVariantStore = WidgetVariantStore.shared
+    @ObservedObject private var englishCoach = EnglishCoachService.shared
     let onRecordButtonTapped: () -> Void
     let onCloseTapped: () -> Void
     let onAssistantFollowUp: (String) -> Void
+    let onCoachDismiss: () -> Void
+    let onCoachHover: (Bool) -> Void
 
     // MARK: - Layout Constants
 
@@ -23,6 +26,12 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         hasAssistantResponse &&
             stateProvider.recordingState == .idle &&
             !assistantSession.isBusy
+    }
+
+    private var shouldShowCoachSuggestion: Bool {
+        englishCoach.latestSuggestion != nil &&
+            !hasAssistantResponse &&
+            stateProvider.recordingState == .idle
     }
 
     private var liveAssistantFollowUpText: String {
@@ -75,12 +84,24 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
                 .frame(width: assistantWidth)
                 .background(Color.black)
                 .clipShape(RoundedRectangle(cornerRadius: expandedCornerRadius, style: .continuous))
+            } else if shouldShowCoachSuggestion,
+                      let suggestion = englishCoach.latestSuggestion {
+                CoachCardView(suggestion: suggestion) {
+                    englishCoach.clearSuggestion()
+                    onCoachDismiss()
+                }
+                .frame(width: 420)
+                .onHover { onCoachHover($0) }
+                // Lift off the window's bottom edge so the card's drop shadow
+                // (radius 18 + y:7) isn't clipped when the panel is dragged.
+                .padding(.bottom, 20)
             } else {
                 // Selected floating-panel look (default V2). Pick in Settings → Interface.
                 widgetVariantStore.variant.makeView(variantContext)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: hasAssistantResponse)
+        .animation(.easeInOut(duration: 0.22), value: shouldShowCoachSuggestion)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 }

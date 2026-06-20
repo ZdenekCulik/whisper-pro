@@ -50,6 +50,10 @@ enum AppDefaults {
             // Model
             "PrewarmModelOnWake": true,
 
+            // English Coach
+            "englishCoachEnabled": false,
+            "englishCoachNativeLanguage": "cs",
+
         ])
 
         // One-time switch to pausing media (instead of muting) while recording.

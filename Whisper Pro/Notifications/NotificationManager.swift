@@ -82,7 +82,7 @@ class NotificationManager {
 
     @MainActor
     private func positionWindow(_ window: NSWindow) {
-        let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
+        guard let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens.first else { return }
         let screenRect = activeScreen.visibleFrame
         let notificationRect = window.frame
         

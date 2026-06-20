@@ -265,6 +265,10 @@ struct SettingsView: View {
                 }
             }
 
+            Section("English Coach") {
+                EnglishCoachSettingsView()
+            }
+
             Section {
                 AudioCleanupSettingsView()
             } header: {

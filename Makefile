@@ -65,6 +65,7 @@ local: check setup
 		CODE_SIGNING_REQUIRED=NO \
 		CODE_SIGNING_ALLOWED=YES \
 		DEVELOPMENT_TEAM="" \
+		ENABLE_DEBUG_DYLIB=NO \
 		CODE_SIGN_ENTITLEMENTS="$(CURDIR)/Whisper Pro/WhisperPro.local.entitlements" \
 		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
 		build
@@ -91,7 +92,7 @@ sync-api-keys:
 import plistlib, os; \
 src_path = os.path.expanduser('~/Library/Preferences/com.prakashjoshipax.VoiceInk.plist'); \
 dst_path = os.path.expanduser('~/Library/Preferences/com.prakashjoshipax.WhisperPro.plist'); \
-keys = ['LocalKeychain_groqAPIKey', 'LocalKeychain_sonioxAPIKey']; \
+keys = ['LocalKeychain_groqAPIKey', 'LocalKeychain_sonioxAPIKey', 'LocalKeychain_openAIAPIKey']; \
 src = plistlib.load(open(src_path,'rb')) if os.path.exists(src_path) else {}; \
 dst = plistlib.load(open(dst_path,'rb')) if os.path.exists(dst_path) else {}; \
 [dst.update({k: src[k]}) or print(f'  synced {k}') for k in keys if k in src]; \
@@ -109,6 +110,7 @@ signed: check setup sync-api-keys
 		CODE_SIGNING_ALLOWED=YES \
 		DEVELOPMENT_TEAM="" \
 		PRODUCT_BUNDLE_IDENTIFIER="$(APP_BUNDLE_ID)" \
+		ENABLE_DEBUG_DYLIB=NO \
 		CODE_SIGN_ENTITLEMENTS="$(CURDIR)/Whisper Pro/WhisperPro.local.entitlements" \
 		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
 		build

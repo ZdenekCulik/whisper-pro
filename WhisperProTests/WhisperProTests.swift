@@ -20,4 +20,30 @@ struct WhisperProTests {
         #expect(DashboardHeroVariant(storedValue: 99) == .editorialClaude)
     }
 
+    @MainActor
+    @Test func englishCoachParsesSuggestionResponse() async throws {
+        let parsed = EnglishCoachService.parse("""
+        SUGGESTION: YES
+        SAID: "borrow me your phone"
+        CORRECTED: "lend me your phone"
+        WHY: Use lend when someone gives something to you.
+        """)
+
+        #expect(parsed?.said == "borrow me your phone")
+        #expect(parsed?.corrected == "lend me your phone")
+        #expect(parsed?.why == "Use lend when someone gives something to you.")
+    }
+
+    @MainActor
+    @Test func englishCoachIgnoresNoSuggestionResponse() async throws {
+        let parsed = EnglishCoachService.parse("""
+        SUGGESTION: NO
+        SAID:
+        CORRECTED:
+        WHY:
+        """)
+
+        #expect(parsed == nil)
+    }
+
 }

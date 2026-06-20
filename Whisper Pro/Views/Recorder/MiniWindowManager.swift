@@ -14,7 +14,9 @@ class MiniWindowManager {
         assistantSession: AssistantSession,
         onRecordButtonTapped: @escaping () -> Void,
         onCloseTapped: @escaping () -> Void,
-        onAssistantFollowUp: @escaping (String) -> Void
+        onAssistantFollowUp: @escaping (String) -> Void,
+        onCoachDismiss: @escaping () -> Void,
+        onCoachHover: @escaping (Bool) -> Void
     ) {
         self.makeView = {
             AnyView(
@@ -24,7 +26,9 @@ class MiniWindowManager {
                     assistantSession: assistantSession,
                     onRecordButtonTapped: onRecordButtonTapped,
                     onCloseTapped: onCloseTapped,
-                    onAssistantFollowUp: onAssistantFollowUp
+                    onAssistantFollowUp: onAssistantFollowUp,
+                    onCoachDismiss: onCoachDismiss,
+                    onCoachHover: onCoachHover
                 )
             )
         }

@@ -32,6 +32,12 @@ playground.xcworkspace
 .build/
 build/
 .local-build/
+.local-test-build/
+.local-home/
+
+## Code coverage
+*.profraw
+*.profdata
 
 # CocoaPods
 #

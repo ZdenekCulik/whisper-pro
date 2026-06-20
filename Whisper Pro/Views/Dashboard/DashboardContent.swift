@@ -150,6 +150,8 @@ struct DashboardContent: View {
                                 accessibilityReminder
                             }
 
+                            CoachPhrasesCard()
+
                             RecentTranscriptsSection()
 
                             Spacer(minLength: 20)
