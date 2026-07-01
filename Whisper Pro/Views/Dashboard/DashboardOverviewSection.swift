@@ -5,18 +5,10 @@ struct DashboardOverviewSection: View {
     let insightsData: InsightsData?
 
     var body: some View {
-        // Main merged hero (time-saved headline + words-over-time chart) on the
-        // left, with the holographic day-streak card brought back on the right.
-        HStack(alignment: .top, spacing: 16) {
-            WordsOverTimeCard(insightsData: insightsData, timeSavedSeconds: stats.timeSavedSeconds)
-                .frame(maxWidth: .infinity)
-
-            OverviewStreakCard(
-                streak: insightsData?.currentStreak ?? 0,
-                longest: insightsData?.longestStreak ?? 0
-            )
-            .frame(width: 190)
-        }
+        // Redesigned hero (2026-07): three switchable designs in
+        // DashboardHeroRedesign.swift. The old WordsOverTimeCard +
+        // OverviewStreakCard pair stays in the tree but is no longer mounted.
+        DashboardHeroSection(stats: stats, insightsData: insightsData)
     }
 }
 
