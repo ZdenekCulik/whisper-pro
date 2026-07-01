@@ -2,8 +2,13 @@ import SwiftUI
 import AppKit
 
 class MiniRecorderPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
+    // Never become the key/main window: the recorder pops up over whatever the user
+    // was typing in (a chat box, etc.). Stealing key status drops their text field's
+    // focus, so Enter after dictation wouldn't land there. Buttons inside a
+    // nonactivating panel still receive clicks, and the global CGEvent tap
+    // (ShortcutMonitor) catches Escape / mode digits without needing key status.
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
     
     init(contentRect: NSRect) {
         super.init(
@@ -57,6 +62,8 @@ class MiniRecorderPanel: NSPanel {
     func show() {
         let metrics = MiniRecorderPanel.calculateWindowMetrics()
         setFrame(metrics, display: true)
+        // orderFrontRegardless (not makeKeyAndOrderFront) so the panel shows without
+        // taking focus away from the user's current text field.
         orderFrontRegardless()
     }
     

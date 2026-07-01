@@ -25,11 +25,9 @@ class LicenseViewModel: ObservableObject {
     private let licenseManager = LicenseManager.shared
 
     init() {
-        #if LOCAL_BUILD
+        // Personal fork: the inherited licensing/trial gate is disabled. The app always
+        // runs as fully licensed, so there are no trial limits or upgrade prompts.
         licenseState = .licensed
-        #else
-        loadLicenseState()
-        #endif
     }
 
     func startTrial() {
@@ -94,29 +92,14 @@ class LicenseViewModel: ObservableObject {
         }
     }
     
-    var canUseApp: Bool {
-        switch licenseState {
-        case .licensed, .trial:
-            return true
-        case .unlicensed, .trialExpired:
-            return false
-        }
-    }
+    // Licensing/trial gate disabled in this fork — the app is always usable and never
+    // injects a restriction message into delivered text.
+    var canUseApp: Bool { true }
 
-    var usageRestrictionMessage: String? {
-        switch licenseState {
-        case .unlicensed, .trialExpired:
-            return String(
-                format: String(localized: "Your trial has ended. Upgrade to Whisper Pro at %@"),
-                "trywhisperpro.com/buy"
-            )
-        case .trial, .licensed:
-            return nil
-        }
-    }
-    
+    var usageRestrictionMessage: String? { nil }
+
     func openPurchaseLink() {
-        if let url = URL(string: "https://trywhisperpro.com/buy") {
+        if let url = URL(string: "https://github.com/ZdenekCulik/whisper-pro") {
             NSWorkspace.shared.open(url)
         }
     }
@@ -211,10 +194,7 @@ class LicenseViewModel: ObservableObject {
         } catch {
             validationSuccess = false
             logger.error("🔑 Unexpected license error: \(error, privacy: .public)")
-            validationMessage = String(
-                format: String(localized: "An unexpected error occurred. Please try again or contact support at %@"),
-                "support@trywhisperpro.com"
-            )
+            validationMessage = String(localized: "An unexpected error occurred. Please try again.")
         }
         
         isValidating = false

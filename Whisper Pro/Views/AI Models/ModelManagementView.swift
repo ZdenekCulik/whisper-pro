@@ -287,7 +287,7 @@ struct ModelManagementView: View {
 
             InfoTip(
                 "Add a custom fine-tuned whisper model to use with Whisper Pro. Select the downloaded .bin file.",
-                learnMoreURL: "https://trywhisperpro.com/docs/custom-local-whisper-models"
+                learnMoreURL: "https://github.com/ZdenekCulik/whisper-pro"
             )
             .help("Read more about custom local models")
         }

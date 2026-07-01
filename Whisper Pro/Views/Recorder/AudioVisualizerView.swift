@@ -21,7 +21,7 @@ struct AudioVisualizer: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.016)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { context in
             HStack(spacing: barSpacing) {
                 ForEach(0..<barCount, id: \.self) { index in
                     RoundedRectangle(cornerRadius: barWidth / 2)

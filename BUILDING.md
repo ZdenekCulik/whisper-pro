@@ -18,8 +18,8 @@ The easiest way to build Whisper Pro is using the included Makefile, which autom
 
 ```bash
 # Clone the repository
-git clone https://github.com/Beingpax/WhisperPro.git
-cd WhisperPro
+git clone https://github.com/ZdenekCulik/whisper-pro.git
+cd whisper-pro
 
 # Build everything (recommended for first-time setup)
 make all
@@ -59,8 +59,8 @@ This approach ensures consistent builds across different machines and eliminates
 If you don't have an Apple Developer certificate, use `make local`:
 
 ```bash
-git clone https://github.com/Beingpax/WhisperPro.git
-cd WhisperPro
+git clone https://github.com/ZdenekCulik/whisper-pro.git
+cd whisper-pro
 make local
 open ~/Downloads/Whisper Pro.app
 ```
@@ -96,8 +96,8 @@ This will create the XCFramework at `build-apple/whisper.xcframework`.
 
 1. Clone the Whisper Pro repository:
 ```bash
-git clone https://github.com/Beingpax/WhisperPro.git
-cd WhisperPro
+git clone https://github.com/ZdenekCulik/whisper-pro.git
+cd whisper-pro
 ```
 
 2. Add the whisper.xcframework to your project:
@@ -136,4 +136,4 @@ If you encounter any build issues:
 4. Verify all dependencies are properly installed
 5. Make sure whisper.xcframework is properly built and linked
 
-For more help, please check the [issues](https://github.com/Beingpax/WhisperPro/issues) section or create a new issue. 
+For more help, please check the [issues](https://github.com/ZdenekCulik/whisper-pro/issues) section or create a new issue. 

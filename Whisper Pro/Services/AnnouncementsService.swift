@@ -9,8 +9,8 @@ final class AnnouncementsService {
 
     // MARK: - Configuration
 
-    // Hosted via GitHub Pages for this repo
-    private let announcementsURL = URL(string: "https://beingpax.github.io/WhisperPro/announcements.json")!
+    // Private fork: points at this repo's (empty) announcements file, so nothing is fetched.
+    private let announcementsURL = URL(string: "https://raw.githubusercontent.com/ZdenekCulik/whisper-pro/main/announcements.json")!
 
     // Fetch every 4 hours
     private let refreshInterval: TimeInterval = 4 * 60 * 60

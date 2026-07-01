@@ -281,7 +281,7 @@ struct DictionaryQuickAddView: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
                     .frame(width: 56, alignment: .trailing)
-                TextField("", text: $replacementInput, prompt: Text("e.g. support@trywhisperpro.com").foregroundColor(.secondary))
+                TextField("", text: $replacementInput, prompt: Text("e.g. you@example.com").foregroundColor(.secondary))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 14))
                     .focused($focusedField, equals: .replacement)

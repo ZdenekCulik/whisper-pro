@@ -118,14 +118,24 @@ final class StreamingTranscriptionSession: TranscriptionSession {
         }
 
         if !streamingFailed {
+            var shouldUseFallback = false
             do {
                 let start = Date()
                 logger.notice("Streaming stop/transcribe started model=\(model.displayName, privacy: .public)")
                 let text = try await streamingService.stopAndGetFinalText()
                 logger.notice("Streaming transcript received elapsed=\(Date().timeIntervalSince(start), format: .fixed(precision: 3), privacy: .public)s chars=\(text.count, privacy: .public)")
-                return text
+                if streamingService.hasDroppedAudio {
+                    logger.warning("Streaming dropped stale audio to stay live; using batch fallback for complete final text.")
+                    shouldUseFallback = true
+                } else {
+                    return text
+                }
             } catch {
                 logger.error("❌ Streaming failed, falling back to batch: \(error, privacy: .public)")
+                streamingService.cancel()
+            }
+
+            if shouldUseFallback {
                 streamingService.cancel()
             }
         } else {

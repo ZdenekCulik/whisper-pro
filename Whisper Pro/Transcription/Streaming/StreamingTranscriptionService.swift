@@ -4,11 +4,24 @@ import os
 
 /// Sendable source that bridges audio chunks from any thread into an AsyncStream.
 private final class AudioChunkSource: @unchecked Sendable {
-    let stream: AsyncStream<Data>
-    private let continuation: AsyncStream<Data>.Continuation
+    private struct DropStats {
+        var chunks = 0
+        var bytes = 0
+    }
+
+    private static let targetChunkBytes = 3_200 // 100ms of 16kHz PCM16 mono
+    private static let maxQueuedChunks = 10
+
+    let stream: AsyncStream<Void>
+    private let continuation: AsyncStream<Void>.Continuation
+    private let lock = NSLock()
+    private var pendingChunk = Data()
+    private var queuedChunks: [Data] = []
+    private var isFinished = false
+    private var dropStats = DropStats()
 
     init() {
-        let (stream, continuation) = AsyncStream.makeStream(of: Data.self, bufferingPolicy: .unbounded)
+        let (stream, continuation) = AsyncStream.makeStream(of: Void.self, bufferingPolicy: .bufferingNewest(1))
         self.stream = stream
         self.continuation = continuation
     }
@@ -18,11 +31,72 @@ private final class AudioChunkSource: @unchecked Sendable {
     }
 
     func send(_ data: Data) {
-        continuation.yield(data)
+        lock.lock()
+        guard !isFinished else {
+            lock.unlock()
+            return
+        }
+
+        pendingChunk.append(data)
+        let shouldFlush = pendingChunk.count >= Self.targetChunkBytes
+        if shouldFlush {
+            enqueuePendingChunkLocked()
+        }
+        lock.unlock()
+
+        if shouldFlush {
+            continuation.yield(())
+        }
     }
 
     func finish() {
+        lock.lock()
+        guard !isFinished else {
+            lock.unlock()
+            return
+        }
+        isFinished = true
+        let hasPendingChunk = !pendingChunk.isEmpty
+        if hasPendingChunk {
+            enqueuePendingChunkLocked()
+        }
+        lock.unlock()
+
+        if hasPendingChunk {
+            continuation.yield(())
+        }
         continuation.finish()
+    }
+
+    func nextChunk() -> Data? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !queuedChunks.isEmpty else { return nil }
+        return queuedChunks.removeFirst()
+    }
+
+    var hasDroppedAudio: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return dropStats.chunks > 0
+    }
+
+    func dropSnapshot() -> (chunks: Int, bytes: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (dropStats.chunks, dropStats.bytes)
+    }
+
+    private func enqueuePendingChunkLocked() {
+        guard !pendingChunk.isEmpty else { return }
+        queuedChunks.append(pendingChunk)
+        pendingChunk.removeAll(keepingCapacity: true)
+
+        while queuedChunks.count > Self.maxQueuedChunks {
+            let dropped = queuedChunks.removeFirst()
+            dropStats.chunks += 1
+            dropStats.bytes += dropped.count
+        }
     }
 }
 
@@ -85,6 +159,7 @@ class StreamingTranscriptionService {
     private let chunkSource = AudioChunkSource()
     private var state: StreamingState = .idle
     private var committedSegments: [String] = []
+    private var committedTextCache = ""
     // Last cumulative partial within the current (uncommitted) segment, used to
     // detect which words have stabilised so the live preview can show them solid.
     private var lastSegmentPartial: String = ""
@@ -117,11 +192,14 @@ class StreamingTranscriptionService {
     /// Whether the streaming connection is fully established and actively sending.
     var isActive: Bool { state == .streaming || state == .committing }
 
+    var hasDroppedAudio: Bool { chunkSource.hasDroppedAudio }
+
     /// Start a streaming transcription session for the given model.
     func startStreaming(model: any TranscriptionModel, context: TranscriptionRequestContext) async throws {
         let start = Date()
         state = .connecting
         committedSegments = []
+        committedTextCache = ""
         lastSegmentPartial = ""
         metrics.reset()
         firstPartialLogged = false
@@ -219,6 +297,7 @@ class StreamingTranscriptionService {
         }
 
         committedSegments = []
+        committedTextCache = ""
         lastSegmentPartial = ""
         logger.notice("Streaming cancelled")
     }
@@ -229,16 +308,25 @@ class StreamingTranscriptionService {
     /// whitespace on a genuine mid-word divergence so a half-formed word stays in
     /// the dim tail instead of flickering solid.
     private static func stableCommonPrefix(_ a: String, _ b: String) -> String {
-        let ac = Array(a), bc = Array(b)
-        var i = 0
-        while i < ac.count && i < bc.count && ac[i] == bc[i] { i += 1 }
-        var cut = i
+        var aIndex = a.startIndex
+        var bIndex = b.startIndex
+        var lastWhitespaceInB = b.startIndex
+
+        while aIndex < a.endIndex, bIndex < b.endIndex, a[aIndex] == b[bIndex] {
+            if b[bIndex].isWhitespace {
+                lastWhitespaceInB = b.index(after: bIndex)
+            }
+            a.formIndex(after: &aIndex)
+            b.formIndex(after: &bIndex)
+        }
+
+        var cut = bIndex
         // Only back off when both strings have a differing character here (mid-word
         // change). If one is simply a prefix of the other, keep the full overlap.
-        if i < ac.count && i < bc.count {
-            while cut > 0 && !bc[cut - 1].isWhitespace { cut -= 1 }
+        if aIndex < a.endIndex, bIndex < b.endIndex {
+            cut = lastWhitespaceInB
         }
-        return String(bc[0..<cut])
+        return String(b[..<cut])
     }
 
     private func createProvider(for model: any TranscriptionModel) -> StreamingTranscriptionProvider {
@@ -262,15 +350,28 @@ class StreamingTranscriptionService {
         let metrics = metrics
 
         sendTask = Task.detached { [weak self] in
-            for await chunk in source.stream {
-                do {
-                    try await provider?.sendAudioChunk(chunk)
-                    metrics.recordSent(chunk.count)
-                } catch {
-                    let desc = error.localizedDescription
-                    await MainActor.run {
-                        self?.logger.error("Failed to send audio chunk: \(desc, privacy: .public)")
-                    }
+            for await _ in source.stream {
+                await Self.sendQueuedChunks(from: source, to: provider, metrics: metrics, owner: self)
+            }
+
+            await Self.sendQueuedChunks(from: source, to: provider, metrics: metrics, owner: self)
+        }
+    }
+
+    private nonisolated static func sendQueuedChunks(
+        from source: AudioChunkSource,
+        to provider: StreamingTranscriptionProvider?,
+        metrics: StreamingMetrics,
+        owner: StreamingTranscriptionService?
+    ) async {
+        while let chunk = source.nextChunk() {
+            do {
+                try await provider?.sendAudioChunk(chunk)
+                metrics.recordSent(chunk.count)
+            } catch {
+                let desc = error.localizedDescription
+                await MainActor.run {
+                    owner?.logger.error("Failed to send audio chunk: \(desc, privacy: .public)")
                 }
             }
         }
@@ -283,7 +384,8 @@ class StreamingTranscriptionService {
         await sendTask?.value
         sendTask = nil
         let snapshot = metrics.snapshot()
-        logger.notice("Streaming drain finished elapsed=\(Date().timeIntervalSince(start), format: .fixed(precision: 3), privacy: .public)s receivedChunks=\(snapshot.receivedChunks, privacy: .public) sentChunks=\(snapshot.sentChunks, privacy: .public) receivedBytes=\(snapshot.receivedBytes, privacy: .public) sentBytes=\(snapshot.sentBytes, privacy: .public)")
+        let drops = chunkSource.dropSnapshot()
+        logger.notice("Streaming drain finished elapsed=\(Date().timeIntervalSince(start), format: .fixed(precision: 3), privacy: .public)s receivedChunks=\(snapshot.receivedChunks, privacy: .public) sentChunks=\(snapshot.sentChunks, privacy: .public) receivedBytes=\(snapshot.receivedBytes, privacy: .public) sentBytes=\(snapshot.sentBytes, privacy: .public) droppedChunks=\(drops.chunks, privacy: .public) droppedBytes=\(drops.bytes, privacy: .public)")
     }
 
     /// Consumes transcription events throughout the session, accumulating committed segments.
@@ -305,6 +407,9 @@ class StreamingTranscriptionService {
                         }
                         if !trimmed.isEmpty {
                             self.committedSegments.append(trimmed)
+                            self.committedTextCache = self.committedTextCache.isEmpty
+                                ? trimmed
+                                : self.committedTextCache + " " + trimmed
                         }
                         // A segment finalised; the next partial starts a fresh segment.
                         self.lastSegmentPartial = ""
@@ -312,7 +417,7 @@ class StreamingTranscriptionService {
                         // after a commit (instead of resetting to empty until the next partial).
                         if self.state == .streaming {
                             // Everything just got committed; no unstable tail remains.
-                            self.onPartialTranscript?(self.committedSegments.joined(separator: " "), "")
+                            self.onPartialTranscript?(self.committedTextCache, "")
                         }
                         if self.state == .committing {
                             self.commitSignal?.yield()
@@ -326,7 +431,7 @@ class StreamingTranscriptionService {
                         }
                         if self.state == .streaming {
                             // Already-committed whole segments are always stable (solid).
-                            let committedPrefix = self.committedSegments.joined(separator: " ")
+                            let committedPrefix = self.committedTextCache
                             // Within the current segment, the part of the cumulative partial that
                             // stayed identical since the previous partial has stabilised → solid.
                             // The revising remainder is the dim tail. (Soniox keeps finalised
@@ -358,9 +463,17 @@ class StreamingTranscriptionService {
         }
     }
 
-    /// Waits for the server to acknowledge our explicit commit, with a 10-second timeout.
+    /// How long to wait for the server's final-commit ack before delivering the text we
+    /// already have. Kept short: after Enter the app already holds the full live
+    /// transcript, so it should paste optimistically instead of stalling on the network.
+    private static let finalCommitTimeout: UInt64 = 600_000_000 // 0.6s
+
+    /// Waits (briefly) for the server to acknowledge our explicit commit, then returns the
+    /// best transcript available. On timeout it falls back to the locally-known text
+    /// (committed segments + the still-dim partial tail) rather than blocking or dropping
+    /// the last word.
     private func waitForFinalCommit(signalStream: AsyncStream<Void>) async -> String {
-        // Race: wait for commit acknowledgment vs timeout
+        // Race: wait for commit acknowledgment vs a short timeout
         let receivedInTime = await withTaskGroup(of: Bool.self) { group in
             group.addTask { @MainActor in
                 for await _ in signalStream {
@@ -370,7 +483,7 @@ class StreamingTranscriptionService {
             }
 
             group.addTask {
-                try? await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
+                try? await Task.sleep(nanoseconds: Self.finalCommitTimeout)
                 return false
             }
 
@@ -384,11 +497,17 @@ class StreamingTranscriptionService {
         commitSignal?.finish()
         commitSignal = nil
 
-        if !receivedInTime && committedSegments.isEmpty {
-            logger.warning("No transcript received from streaming")
+        // When the server acked in time, committedSegments holds the finalized text.
+        // Otherwise include the last partial tail so we don't lose the final word(s).
+        var parts = committedSegments
+        if !receivedInTime, !lastSegmentPartial.isEmpty {
+            parts.append(lastSegmentPartial)
         }
-
-        return committedSegments.isEmpty ? "" : committedSegments.joined(separator: " ")
+        if parts.isEmpty {
+            logger.warning("No transcript received from streaming")
+            return ""
+        }
+        return parts.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func cleanupStreaming() async {
@@ -404,6 +523,7 @@ class StreamingTranscriptionService {
         provider = nil
         state = .idle
         committedSegments = []
+        committedTextCache = ""
         lastSegmentPartial = ""
     }
 }

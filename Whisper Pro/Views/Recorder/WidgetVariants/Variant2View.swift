@@ -13,12 +13,12 @@ struct Variant2View: View {
     private static let defaultWidth: CGFloat = 384
     private static let collapsedWidth: CGFloat = 138
 
-    // Transcript grows with the text from a 2-row floor up to a 5-row cap, then scrolls.
+    // Transcript grows with the text from a 2-row floor up to a 3-row cap, then scrolls.
     private static let fontSize: CGFloat = 13
     private static let lineSpacing: CGFloat = 3
     private static let lineHeight: CGFloat = fontSize + lineSpacing + 4
     private static let defaultLines: CGFloat = 2
-    private static let maxLines: CGFloat = 5
+    private static let maxLines: CGFloat = 3
     private static let textTopPadding: CGFloat = 16
     private static let textBottomPadding: CGFloat = 6
 
@@ -367,19 +367,13 @@ private struct ShimmerTranscriptText: View {
             // whole block so it reads as one shimmering "being refined" state instead
             // of a separate loading spinner. Dim base + strong wide sweep = clearly
             // visible gradient travelling across every word.
-            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { timeline in
                 let t = timeline.date.timeIntervalSinceReferenceDate
                 let phase = (t.truncatingRemainder(dividingBy: 0.9)) / 0.9  // 0…1 loop
                 // Strongly dim the base and run a bright, tight band so the highlight
                 // reads as a very pronounced sweep crossing the whole block.
                 base.foregroundColor(.white.opacity(0.22))
                     .overlay(sweep(phase: phase, intensity: 1.0, band: 0.22))
-            }
-        } else if isLive && !partial.isEmpty {
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-                let t = timeline.date.timeIntervalSinceReferenceDate
-                let phase = (sin(t * 2.2) + 1) / 2  // 0…1 sweep
-                base.overlay(sweep(phase: phase, intensity: 0.35, band: 0.18))
             }
         } else {
             base

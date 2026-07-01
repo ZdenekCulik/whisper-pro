@@ -2,20 +2,6 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>Whisper Pro</title>
-        <item>
-            <title>1.79</title>
-            <description><![CDATA[
-                <h3>What's New in v1.79</h3>
-                <ul>
-                    <li>🛠️ Fixed AppleScript paste crash</li>
-                    <li>⌨️ Fixed accidental Fn shortcut triggers</li>
-                </ul>
-            ]]></description>
-            <pubDate>Sat, 23 May 2026 20:23:30 +0545</pubDate>
-            <sparkle:version>179</sparkle:version>
-            <sparkle:shortVersionString>1.79</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.4</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/Beingpax/WhisperPro/releases/download/v1.79/WhisperPro.dmg" length="14406786" type="application/octet-stream" sparkle:edSignature="TI2RXCaX+lx8Dp7fERw9B4Ef+xHwJQxsshBnDClUAKsyafQjfM4DYOCm3Iz9dF7VaajUZccafIktBDsbtuRzCA=="/>
-        </item>
+        <!-- Private fork: no public release feed. Build from source instead. -->
     </channel>
 </rss>

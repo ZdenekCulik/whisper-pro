@@ -98,7 +98,7 @@ struct ModeView: View {
                 AppScreenHeader(
                     title: "Modes",
                     infoMessage: "Modes help you set up Whisper Pro for different writing tasks, workflows, and scenarios.",
-                    infoURL: "https://trywhisperpro.com/docs/modes"
+                    infoURL: "https://github.com/ZdenekCulik/whisper-pro"
                 ) {
                     headerControls
                 }

@@ -104,6 +104,11 @@ struct InsightsData: Equatable {
     let enhancedSessions: Int
     /// Pre-bucketed words time-series, one series per selectable range.
     let wordsByRange: [WordsRange: [WordsSeriesPoint]]
+    /// Typed-words ("Napsáno") time-series from Claude + Codex logs, bucketed to
+    /// match `wordsByRange`. Default empty so existing call sites compile.
+    var typedWordsByRange: [WordsRange: [WordsSeriesPoint]] = [:]
+    /// Whether any typed-words data exists. Drives showing/hiding the gray line.
+    var hasTypedData: Bool = false
 
     /// Largest daily count, used to normalise the contribution heatmap into levels.
     var maxDayCount: Int { days.map(\.count).max() ?? 0 }
@@ -178,6 +183,27 @@ extension InsightsData {
             .total: series(count: 18, step: .month, pattern: monthPattern)
         ]
 
+        // Typed series — lower, distinct pattern so the gray line reads as a
+        // separate trend in previews. Typed points carry no spoken duration.
+        func typedSeries(count: Int, step: Calendar.Component, pattern: [Double]) -> [WordsSeriesPoint] {
+            (0..<count).compactMap { i in
+                guard let date = calendar.date(byAdding: step, value: -(count - 1 - i), to: anchor) else { return nil }
+                return WordsSeriesPoint(date: date, value: pattern[i % pattern.count], duration: 0)
+            }
+        }
+        let typedHourPattern: [Double] = [0, 0, 40, 110, 90, 160, 70, 200, 130, 250]
+        let typedDayPattern: [Double] = [180, 320, 240, 420, 280, 510, 360]
+        let typedWeekPattern: [Double] = [1_400, 1_900, 1_600, 2_300, 2_000, 2_500, 2_100, 2_900]
+        let typedMonthPattern: [Double] = [5_800, 7_400, 6_500, 8_600, 7_800, 9_900]
+        let typedWordsByRange: [WordsRange: [WordsSeriesPoint]] = [
+            .today: typedSeries(count: 10, step: .hour, pattern: typedHourPattern),
+            .week: typedSeries(count: 7, step: .day, pattern: typedDayPattern),
+            .month: typedSeries(count: 30, step: .day, pattern: typedDayPattern),
+            .sixMonths: typedSeries(count: 26, step: .weekOfYear, pattern: typedWeekPattern),
+            .year: typedSeries(count: 12, step: .month, pattern: typedMonthPattern),
+            .total: typedSeries(count: 18, step: .month, pattern: typedMonthPattern)
+        ]
+
         return InsightsData(
             days: days,
             modes: modes,
@@ -192,7 +218,9 @@ extension InsightsData {
             dictionaryWords: 13,
             dictionaryReplacements: 16,
             enhancedSessions: 1843,
-            wordsByRange: wordsByRange
+            wordsByRange: wordsByRange,
+            typedWordsByRange: typedWordsByRange,
+            hasTypedData: true
         )
     }()
 }

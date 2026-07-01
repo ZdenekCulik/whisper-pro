@@ -7,8 +7,11 @@ class KeyablePanel: NSPanel {
 }
 
 class NotchRecorderPanel: KeyablePanel {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
+    // Never become key/main — see MiniRecorderPanel: the recorder must not steal focus
+    // from the text field the user was typing in, or Enter after dictation won't land
+    // there. Escape / mode digits come through the global CGEvent tap, not key status.
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
 
     init(contentRect: NSRect) {
         let metrics = NotchRecorderPanel.calculateWindowMetrics()
@@ -75,6 +78,8 @@ class NotchRecorderPanel: KeyablePanel {
     func show() {
         let metrics = NotchRecorderPanel.calculateWindowMetrics()
         setFrame(metrics.frame, display: true)
+        // orderFrontRegardless (not makeKeyAndOrderFront) so showing the recorder does
+        // not pull focus off the user's current text field.
         orderFrontRegardless()
     }
 

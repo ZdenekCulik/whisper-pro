@@ -12,7 +12,7 @@ struct WaveformStyleView: View {
     var color: Color = .white
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.016)) { ctx in
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { ctx in
             Canvas { gc, size in
                 draw(&gc, size: size, t: ctx.date.timeIntervalSince1970)
             }

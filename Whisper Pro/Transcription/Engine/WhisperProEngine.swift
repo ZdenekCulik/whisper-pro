@@ -28,6 +28,11 @@ class WhisperProEngine: NSObject, ObservableObject {
     // text steady and only dim the unstable tail, which kills the "jumping" effect.
     @Published var committedTranscript: String = ""
     @Published var partialTail: String = ""
+    private static let liveTranscriptPublishInterval: TimeInterval = 1.0 / 20.0
+    private static let liveTranscriptDisplayCharacters = 360
+    private var lastLiveTranscriptPublishAt = Date.distantPast
+    private var pendingLiveTranscriptUpdate: (committed: String, partial: String)?
+    private var liveTranscriptPublishTask: Task<Void, Never>?
     // Set when the recording is committed via Return: forces an Enter auto-send
     // after paste for this delivery only (so the hotkey still just pastes).
     var forceAutoSendOnCommit = false
@@ -44,6 +49,8 @@ class WhisperProEngine: NSObject, ObservableObject {
     let recorder = Recorder()
     var recordedFile: URL? = nil
     let recordingsDirectory: URL
+    // Mirrors the live transcript to disk so it survives a crash/kill mid-dictation.
+    private let transcriptRecovery: TranscriptRecoveryStore
 
     // Injected managers
     let whisperModelManager: WhisperModelManager
@@ -81,6 +88,7 @@ class WhisperProEngine: NSObject, ObservableObject {
         let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("com.prakashjoshipax.WhisperPro")
         self.recordingsDirectory = appSupportDirectory.appendingPathComponent("Recordings")
+        self.transcriptRecovery = TranscriptRecoveryStore(directory: appSupportDirectory)
 
         self.serviceRegistry = TranscriptionServiceRegistry(
             modelProvider: whisperModelManager,
@@ -97,6 +105,31 @@ class WhisperProEngine: NSObject, ObservableObject {
 
         setupNotifications()
         createRecordingsDirectoryIfNeeded()
+        recoverInterruptedTranscriptIfNeeded()
+    }
+
+    /// If the previous session was killed/crashed mid-dictation, its live transcript is
+    /// still on disk. Recover it into history (and the clipboard) so it's never lost.
+    private func recoverInterruptedTranscriptIfNeeded() {
+        guard let recovered = transcriptRecovery.recoverPendingText() else { return }
+
+        let transcription = Transcription(
+            text: recovered,
+            duration: 0,
+            modeName: String(localized: "Recovered"),
+            modeEmoji: "♻️",
+            transcriptionStatus: .completed
+        )
+        modelContext.insert(transcription)
+        try? modelContext.save()
+        NotificationCenter.default.post(name: .transcriptionCreated, object: transcription)
+
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(recovered, forType: .string)
+
+        transcriptRecovery.clear()
+        logger.notice("Recovered interrupted transcript (\(recovered.count, privacy: .public) chars) into history + clipboard")
     }
 
     private func createRecordingsDirectoryIfNeeded() {
@@ -123,6 +156,7 @@ class WhisperProEngine: NSObject, ObservableObject {
             activePipelineUseCase = activeRecordingUseCase
             activeRecordingUseCase = .newSession
             activeRecordingStartID = nil
+            cancelPendingLiveTranscriptUpdate()
             partialTranscript = ""
             recordingState = .transcribing
             await recorder.stopRecording()
@@ -161,6 +195,7 @@ class WhisperProEngine: NSObject, ObservableObject {
 
             activePipelineTranscriptionID = nil
             shouldCancelRecording = false
+            cancelPendingLiveTranscriptUpdate()
             partialTranscript = ""
             committedTranscript = ""
             partialTail = ""
@@ -249,11 +284,7 @@ class WhisperProEngine: NSObject, ObservableObject {
                                                   self.recordingState == .recording else {
                                                 return
                                             }
-                                            self.committedTranscript = committed
-                                            self.partialTail = partial
-                                            self.partialTranscript = [committed, partial]
-                                                .filter { !$0.isEmpty }
-                                                .joined(separator: " ")
+                                            self.scheduleLiveTranscriptUpdate(committed: committed, partial: partial)
                                         }
                                     }
                                 )
@@ -328,6 +359,88 @@ class WhisperProEngine: NSObject, ObservableObject {
 
     private func requestRecordPermission(response: @escaping (Bool) -> Void) {
         response(true)
+    }
+
+    private func scheduleLiveTranscriptUpdate(committed: String, partial: String) {
+        guard recordingState == .recording else { return }
+
+        let now = Date()
+        let elapsed = now.timeIntervalSince(lastLiveTranscriptPublishAt)
+        if elapsed >= Self.liveTranscriptPublishInterval {
+            liveTranscriptPublishTask?.cancel()
+            liveTranscriptPublishTask = nil
+            pendingLiveTranscriptUpdate = nil
+            publishLiveTranscript(committed: committed, partial: partial, now: now)
+            return
+        }
+
+        pendingLiveTranscriptUpdate = (committed, partial)
+        guard liveTranscriptPublishTask == nil else { return }
+
+        let delay = max(0, Self.liveTranscriptPublishInterval - elapsed)
+        liveTranscriptPublishTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard let self else { return }
+            self.liveTranscriptPublishTask = nil
+            guard let update = self.pendingLiveTranscriptUpdate else { return }
+            self.pendingLiveTranscriptUpdate = nil
+            self.publishLiveTranscript(committed: update.committed, partial: update.partial, now: Date())
+        }
+    }
+
+    private func publishLiveTranscript(committed: String, partial: String, now: Date = Date()) {
+        guard recordingState == .recording else { return }
+        let fullCombined = [committed, partial].filter { !$0.isEmpty }.joined(separator: " ")
+        let display = Self.liveTranscriptDisplayWindow(committed: committed, partial: partial)
+        let combined = [display.committed, display.partial].filter { !$0.isEmpty }.joined(separator: " ")
+        // Persist the full text, while the published UI only carries a cheap recent window.
+        transcriptRecovery.update(fullCombined)
+
+        guard committedTranscript != display.committed ||
+              partialTail != display.partial ||
+              partialTranscript != combined else {
+            lastLiveTranscriptPublishAt = now
+            return
+        }
+
+        committedTranscript = display.committed
+        partialTail = display.partial
+        partialTranscript = combined
+        lastLiveTranscriptPublishAt = now
+    }
+
+    private func cancelPendingLiveTranscriptUpdate() {
+        liveTranscriptPublishTask?.cancel()
+        liveTranscriptPublishTask = nil
+        pendingLiveTranscriptUpdate = nil
+        lastLiveTranscriptPublishAt = .distantPast
+    }
+
+    private static func liveTranscriptDisplayWindow(
+        committed: String,
+        partial: String
+    ) -> (committed: String, partial: String) {
+        let maxCharacters = liveTranscriptDisplayCharacters
+        let partialWindow = partial.suffix(maxCharacters)
+        let partialWasTrimmed = partialWindow.startIndex != partial.startIndex
+        let visiblePartial = (partialWasTrimmed ? "..." : "") + String(partialWindow)
+
+        let remainingCharacters = max(0, maxCharacters - visiblePartial.count)
+        guard remainingCharacters > 0 else {
+            return ("", visiblePartial)
+        }
+
+        let committedWindow = committed.suffix(remainingCharacters)
+        let committedWasTrimmed = committedWindow.startIndex != committed.startIndex
+        var visibleCommitted = String(committedWindow)
+        if committedWasTrimmed {
+            while let first = visibleCommitted.first, !first.isWhitespace {
+                visibleCommitted.removeFirst()
+            }
+            visibleCommitted = "..." + visibleCommitted.trimmingCharacters(in: .whitespaces)
+        }
+
+        return (visibleCommitted, visiblePartial)
     }
 
     // MARK: - Recording Context
@@ -453,6 +566,9 @@ class WhisperProEngine: NSObject, ObservableObject {
 
         let didFinishActivePipeline = activePipelineTranscriptionID == transcriptionID
         if didFinishActivePipeline {
+            // Session finished normally — the final text is saved in history, so the
+            // crash-recovery copy is no longer needed.
+            transcriptRecovery.clear()
             await finishRecorderSession()
             await cleanupResources()
             activePipelineTranscriptionID = nil
@@ -474,6 +590,8 @@ class WhisperProEngine: NSObject, ObservableObject {
     // MARK: - Cancellation
 
     func cancelRecording() async {
+        // User abandoned the recording — drop the crash-recovery copy too.
+        transcriptRecovery.clear()
         let shouldFinishSessionImmediately: Bool
         switch recordingState {
         case .starting, .recording:
@@ -483,10 +601,16 @@ class WhisperProEngine: NSObject, ObservableObject {
         case .transcribing, .enhancing:
             requestRecordingCancellation()
             partialTranscript = ""
+            committedTranscript = ""
+            partialTail = ""
+            cancelPendingLiveTranscriptUpdate()
             recordingState = .idle
             shouldFinishSessionImmediately = false
         case .idle, .busy:
             partialTranscript = ""
+            committedTranscript = ""
+            partialTail = ""
+            cancelPendingLiveTranscriptUpdate()
             shouldCancelRecording = false
             recordingState = .idle
             shouldFinishSessionImmediately = true
@@ -498,12 +622,16 @@ class WhisperProEngine: NSObject, ObservableObject {
     }
 
     func resetRecordingSession() async {
+        transcriptRecovery.clear()
         cancelCurrentSession()
         activeRecordingStartID = nil
         activePipelineTranscriptionID = nil
         canceledPipelineTranscriptionIDs.removeAll()
         shouldCancelRecording = false
+        cancelPendingLiveTranscriptUpdate()
         partialTranscript = ""
+        committedTranscript = ""
+        partialTail = ""
         assistantSession.reset()
         activeRecordingUseCase = .newSession
         activePipelineUseCase = .newSession
@@ -527,12 +655,16 @@ class WhisperProEngine: NSObject, ObservableObject {
     }
 
     private func finishActiveRecorderCancellation() async {
+        transcriptRecovery.clear()
         activeRecordingStartID = nil
         clearActiveRecordingContext()
         await recorder.stopRecording()
         await saveCanceledRecording()
         recordedFile = nil
+        cancelPendingLiveTranscriptUpdate()
         partialTranscript = ""
+        committedTranscript = ""
+        partialTail = ""
         recordingState = .idle
         await cleanupResources()
     }

@@ -51,7 +51,10 @@ struct WhisperProApp: App {
             VocabularyWord.self,
             WordReplacement.self,
             SessionMetric.self,
-            CoachNote.self
+            CoachNote.self,
+            TypedDailyMetric.self,
+            ProcessedLog.self,
+            TypedPromptSignature.self
         ])
         let resolvedContainer: ModelContainer
 
@@ -175,6 +178,12 @@ struct WhisperProApp: App {
             await migrationTask?.value
             TranscriptionAutoCleanupService.shared.startMonitoring(modelContext: mainContext)
         }
+
+        // The gray "Napsáno" line aggregates typed words from the Claude + Codex chat
+        // logs (~4 GB across thousands of files). Scanning that at launch competed with
+        // the dictation pipeline for CPU and the shared SwiftData store, making the whole
+        // app feel laggy. It now runs lazily when the Dashboard appears (see
+        // DashboardContent.task) — off the launch and dictation paths entirely.
     }
 
     // MARK: - Container Creation Helpers
@@ -216,6 +225,9 @@ struct WhisperProApp: App {
         let dictionaryStoreURL = appSupportURL.appendingPathComponent("dictionary.store")
         let statsStoreURL = appSupportURL.appendingPathComponent("stats.store")
         let coachStoreURL = appSupportURL.appendingPathComponent("coach.store")
+        // Derived chat-log metrics are safe to rebuild. Keep them in their own v2 store
+        // so old experimental/corrupt typed stores never block app launch or dictation.
+        let typedStoreURL = appSupportURL.appendingPathComponent("typed-v2.store")
 
         let transcriptSchema = Schema([Transcription.self])
         let transcriptConfig = ModelConfiguration(
@@ -252,8 +264,16 @@ struct WhisperProApp: App {
             cloudKitDatabase: .none
         )
 
+        let typedSchema = Schema([TypedDailyMetric.self, ProcessedLog.self, TypedPromptSignature.self])
+        let typedConfig = ModelConfiguration(
+            "typed",
+            schema: typedSchema,
+            url: typedStoreURL,
+            cloudKitDatabase: .none
+        )
+
         do {
-            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig, coachConfig)
+            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig, coachConfig, typedConfig)
         } catch {
             logger.error("❌ Failed to create persistent ModelContainer:\n\(Self.fullErrorDescription(error), privacy: .public)")
             throw error
@@ -273,8 +293,11 @@ struct WhisperProApp: App {
         let coachSchema = Schema([CoachNote.self])
         let coachConfig = ModelConfiguration("coach", schema: coachSchema, isStoredInMemoryOnly: true)
 
+        let typedSchema = Schema([TypedDailyMetric.self, ProcessedLog.self, TypedPromptSignature.self])
+        let typedConfig = ModelConfiguration("typed", schema: typedSchema, isStoredInMemoryOnly: true)
+
         do {
-            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig, coachConfig)
+            return try ModelContainer(for: schema, configurations: transcriptConfig, dictionaryConfig, statsConfig, coachConfig, typedConfig)
         } catch {
             logger.error("❌ Failed to create in-memory ModelContainer:\n\(Self.fullErrorDescription(error), privacy: .public)")
             throw error

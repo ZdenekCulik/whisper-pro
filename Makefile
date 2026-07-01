@@ -8,13 +8,23 @@ LOCAL_DERIVED_DATA := $(CURDIR)/.local-build
 
 # Stable signed dev build: signed with your Apple Development cert so macOS
 # permissions (Accessibility, Microphone) survive every rebuild — grant once.
-SIGN_IDENTITY := Apple Development: culikzdenek@gmail.com (L9XPMVN7B8)
-DEV_TEAM := L9XPMVN7B8
+#
+# Your personal signing identity is kept OUT of the repo. Put your own values in an
+# untracked Makefile.local (it overrides the placeholders below):
+#   SIGN_IDENTITY := Apple Development: you@example.com (YOURTEAMID)
+#   DEV_TEAM := YOURTEAMID
+# Find your identity with:  security find-identity -v -p codesigning
+SIGN_IDENTITY := Apple Development
+DEV_TEAM :=
 SIGNED_APP := /Applications/Whisper Pro.app
 # Build under the bundle id the app's live data (transcripts, stats, streak,
 # settings) already lives under, so the signed build keeps that history instead
 # of starting fresh under a separate identity.
 APP_BUNDLE_ID := com.prakashjoshipax.WhisperPro
+
+# Local, untracked overrides (your personal SIGN_IDENTITY / DEV_TEAM). Optional;
+# silently skipped if absent.
+-include Makefile.local
 
 # Default target
 all: check build
@@ -88,16 +98,7 @@ local: check setup
 	fi
 
 sync-api-keys:
-	@python3 -c "\
-import plistlib, os; \
-src_path = os.path.expanduser('~/Library/Preferences/com.prakashjoshipax.VoiceInk.plist'); \
-dst_path = os.path.expanduser('~/Library/Preferences/com.prakashjoshipax.WhisperPro.plist'); \
-keys = ['LocalKeychain_groqAPIKey', 'LocalKeychain_sonioxAPIKey', 'LocalKeychain_openAIAPIKey']; \
-src = plistlib.load(open(src_path,'rb')) if os.path.exists(src_path) else {}; \
-dst = plistlib.load(open(dst_path,'rb')) if os.path.exists(dst_path) else {}; \
-[dst.update({k: src[k]}) or print(f'  synced {k}') for k in keys if k in src]; \
-plistlib.dump(dst, open(dst_path,'wb'), fmt=plistlib.FMT_BINARY) \
-" 2>/dev/null && echo "API keys synced from VoiceInk" || echo "API keys: nothing to sync"
+	@echo "API keys are entered in the app's settings and stored per-user — nothing to sync."
 
 signed: check setup sync-api-keys
 	@echo "Building signed dev build (stable Apple Development signature)..."

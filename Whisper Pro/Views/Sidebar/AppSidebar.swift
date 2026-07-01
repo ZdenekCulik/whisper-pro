@@ -106,6 +106,7 @@ private extension ViewType {
         .transcribeAudio,
         .history,
         .dictionary,
+        .englishCoach,
         .models,
         .audio
     ]
@@ -127,6 +128,7 @@ private extension ViewType {
         case .dashboard: return "gauge.medium"
         case .waveforms: return "waveform"
         case .stats: return "chart.bar.xaxis"
+        case .englishCoach: return "graduationcap.fill"
         case .transcribeAudio: return "waveform.path"
         case .history: return "doc.text.fill"
         case .models: return "cpu"
@@ -146,6 +148,8 @@ private extension ViewType {
             return .init(background: AppTheme.Sidebar.modes)
         case .stats:
             return .init(background: AppTheme.Sidebar.dictionary)
+        case .englishCoach:
+            return .init(background: AppTheme.Sidebar.license)
         case .modes:
             return .init(background: AppTheme.Sidebar.modes)
         case .models:

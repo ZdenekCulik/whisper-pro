@@ -225,7 +225,7 @@ struct LicenseManagementView: View {
             ResourceButton(title: "Report or Feedback", systemImage: "exclamationmark.bubble.fill", tint: neutralIconColor, action: showReportPanel)
 
             ResourceButton(title: "Docs", systemImage: "book.fill", tint: neutralIconColor) {
-                openURL("https://trywhisperpro.com/docs")
+                openURL("https://github.com/ZdenekCulik/whisper-pro")
             }
         }
     }
@@ -233,13 +233,13 @@ struct LicenseManagementView: View {
     private var activeResourceDock: some View {
         HStack(spacing: 10) {
             ResourceButton(title: "Changelog", systemImage: "list.bullet.clipboard.fill", tint: neutralIconColor) {
-                openURL("https://github.com/Beingpax/WhisperPro/releases")
+                openURL("https://github.com/ZdenekCulik/whisper-pro/commits/main")
             }
 
             ResourceButton(title: "Report or Feedback", systemImage: "exclamationmark.bubble.fill", tint: neutralIconColor, action: showReportPanel)
 
             ResourceButton(title: "Docs", systemImage: "book.fill", tint: neutralIconColor) {
-                openURL("https://trywhisperpro.com/docs")
+                openURL("https://github.com/ZdenekCulik/whisper-pro")
             }
         }
     }
@@ -276,7 +276,7 @@ struct LicenseManagementView: View {
     }
 
     private func openLicensePortal() {
-        openURL("https://polar.sh/beingpax/portal/request")
+        openURL("https://github.com/ZdenekCulik/whisper-pro")
     }
 
     private func openURL(_ urlString: String) {

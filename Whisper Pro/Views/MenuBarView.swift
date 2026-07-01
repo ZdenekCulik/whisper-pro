@@ -1,6 +1,28 @@
 import SwiftUI
 import LaunchAtLogin
 
+@MainActor
+private final class LaunchAtLoginMenuState: ObservableObject {
+    static let shared = LaunchAtLoginMenuState()
+
+    @Published private(set) var isEnabled = false
+    private var hasLoaded = false
+
+    private init() {}
+
+    func loadIfNeeded() {
+        guard !hasLoaded else { return }
+        hasLoaded = true
+        isEnabled = LaunchAtLogin.isEnabled
+    }
+
+    func setEnabled(_ newValue: Bool) {
+        guard isEnabled != newValue else { return }
+        isEnabled = newValue
+        LaunchAtLogin.isEnabled = newValue
+    }
+}
+
 struct MenuBarView: View {
     @EnvironmentObject var engine: WhisperProEngine
     @EnvironmentObject var recorderUIManager: RecorderUIManager
@@ -12,9 +34,9 @@ struct MenuBarView: View {
     @EnvironmentObject var enhancementService: AIEnhancementService
     @EnvironmentObject var aiService: AIService
     @ObservedObject private var modeManager = ModeManager.shared
+    @ObservedObject private var launchAtLoginState = LaunchAtLoginMenuState.shared
     @ObservedObject var audioDeviceManager = AudioDeviceManager.shared
     @AppStorage("hasCompletedOnboardingV2") private var hasCompletedOnboardingV2 = false
-    @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
     
     var body: some View {
         VStack {
@@ -23,6 +45,9 @@ struct MenuBarView: View {
             } else {
                 onboardingMenu
             }
+        }
+        .task {
+            launchAtLoginState.loadIfNeeded()
         }
     }
 
@@ -133,10 +158,10 @@ struct MenuBarView: View {
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
 
-            Toggle("Launch at Login", isOn: $launchAtLoginEnabled)
-                .onChange(of: launchAtLoginEnabled) { oldValue, newValue in
-                    LaunchAtLogin.isEnabled = newValue
-                }
+            Toggle("Launch at Login", isOn: Binding(
+                get: { launchAtLoginState.isEnabled },
+                set: { launchAtLoginState.setEnabled($0) }
+            ))
 
             Divider()
 

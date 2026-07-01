@@ -12,21 +12,21 @@ struct HelpAndResourcesSection: View {
                     icon: "sparkles",
                     title: "Recommended Models",
                     color: AppTheme.Sidebar.models,
-                    url: "https://trywhisperpro.com/recommended-models"
+                    url: "https://github.com/ZdenekCulik/whisper-pro"
                 )
 
                 resourceLink(
                     icon: "video.fill",
                     title: "YouTube Videos & Guides",
                     color: AppTheme.Sidebar.dashboard,
-                    url: "https://www.youtube.com/@trywhisperpro/videos"
+                    url: "https://github.com/ZdenekCulik/whisper-pro"
                 )
 
                 resourceLink(
                     icon: "book.fill",
                     title: "Documentation",
                     color: AppTheme.Sidebar.dictionary,
-                    url: "https://trywhisperpro.com/docs"
+                    url: "https://github.com/ZdenekCulik/whisper-pro"
                 )
                 
                 resourceLink(

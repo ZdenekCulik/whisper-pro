@@ -150,8 +150,6 @@ struct DashboardContent: View {
                                 accessibilityReminder
                             }
 
-                            CoachPhrasesCard()
-
                             RecentTranscriptsSection()
 
                             Spacer(minLength: 20)
@@ -171,6 +169,11 @@ struct DashboardContent: View {
         .task {
             await loadDashboardStatsEfficiently()
             await loadInsights()
+            // Refresh the gray "Napsáno" line from the Claude + Codex logs here rather
+            // than at launch: this only runs while the Dashboard is on screen, so it
+            // never steals CPU / SwiftData from dictation. Incremental + detached, and
+            // it posts .typedMetricsDidChange to redraw the line when done.
+            await TypedLogIngestor.ingestIfNeeded(modelContainer: modelContext.container)
         }
         .onAppear(perform: refreshAccessibilityStatus)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -181,6 +184,14 @@ struct DashboardContent: View {
             dashboardStatsTask = Task {
                 await loadDashboardStatsEfficiently()
             }
+            insightsTask?.cancel()
+            insightsTask = Task {
+                await loadInsights()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .typedMetricsDidChange)) { _ in
+            // Typed-words aggregates changed — refresh only the insights (the
+            // gray line). Headline totals / TIME SAVED are dictation-only.
             insightsTask?.cancel()
             insightsTask = Task {
                 await loadInsights()

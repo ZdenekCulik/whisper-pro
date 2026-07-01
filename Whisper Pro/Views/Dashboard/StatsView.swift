@@ -117,6 +117,12 @@ struct StatsView: View {
             insightsTask?.cancel()
             insightsTask = Task { await loadInsights() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .typedMetricsDidChange)) { _ in
+            // Typed-words aggregates changed — refresh only the insights (the
+            // gray line). Dictation summary is unaffected.
+            insightsTask?.cancel()
+            insightsTask = Task { await loadInsights() }
+        }
         .onDisappear {
             summaryTask?.cancel()
             insightsTask?.cancel()

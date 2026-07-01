@@ -317,9 +317,9 @@ struct SettingsView: View {
             }
 
             Section("Help & Resources") {
-                Link("Recommended Models", destination: URL(string: "https://trywhisperpro.com/recommended-models")!)
-                Link("YouTube Videos & Guides", destination: URL(string: "https://www.youtube.com/@trywhisperpro/videos")!)
-                Link("Documentation", destination: URL(string: "https://trywhisperpro.com/docs")!)
+                Link("Recommended Models", destination: URL(string: "https://github.com/ZdenekCulik/whisper-pro")!)
+                Link("YouTube Videos & Guides", destination: URL(string: "https://github.com/ZdenekCulik/whisper-pro")!)
+                Link("Documentation", destination: URL(string: "https://github.com/ZdenekCulik/whisper-pro")!)
                 Button("Feedback or Issues?") {
                     EmailSupport.openSupportEmail()
                 }

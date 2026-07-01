@@ -185,6 +185,81 @@ enum InsightsLoader {
                 .total: totalSeries
             ]
 
+            // MARK: Typed-words ("Napsáno") second pass.
+            // Reads cached TypedDailyMetric aggregates (Claude + Codex) and buckets
+            // them onto the SAME date grid as the blue series so the x-axis aligns.
+            // Typed points carry duration 0 (no spoken audio) and we emit explicit
+            // zero-value points for empty buckets so the gray line stays continuous.
+            var typedWordsPerDay: [Date: Int] = [:]
+            var typedWordsPerMonth: [Date: Int] = [:]
+            var hasTypedData = false
+            // TypedDailyMetric lives in its OWN dedicated store (see TypedStore), not
+            // the main container, so read it from there.
+            let typedRows: [TypedDailyMetric] = {
+                guard let typedContainer = TypedStore.container else { return [] }
+                let typedContext = ModelContext(typedContainer)
+                return (try? typedContext.fetch(FetchDescriptor<TypedDailyMetric>())) ?? []
+            }()
+            if !typedRows.isEmpty { hasTypedData = true }
+            for row in typedRows {
+                let day = calendar.startOfDay(for: row.day)
+                typedWordsPerDay[day, default: 0] += row.typedWords
+                let monthKey = calendar.date(from: calendar.dateComponents([.year, .month], from: row.day)) ?? day
+                typedWordsPerMonth[monthKey, default: 0] += row.typedWords
+            }
+
+            func typedDailySeries(daysBack: Int) -> [WordsSeriesPoint] {
+                stride(from: daysBack - 1, through: 0, by: -1).compactMap { back in
+                    guard let date = calendar.date(byAdding: .day, value: -back, to: today) else { return nil }
+                    return WordsSeriesPoint(date: date, value: Double(typedWordsPerDay[date] ?? 0), duration: 0)
+                }
+            }
+
+            // No per-hour typed resolution exists (typed data is bucketed per day),
+            // so the "today" typed series is all-zero on the same hour grid as blue.
+            let typedTodaySeries: [WordsSeriesPoint] = (0...currentHour).compactMap { h in
+                guard let date = calendar.date(byAdding: .hour, value: h, to: today) else { return nil }
+                return WordsSeriesPoint(date: date, value: 0, duration: 0)
+            }
+
+            let typedSixMonthsSeries: [WordsSeriesPoint] = stride(from: 25, through: 0, by: -1).compactMap { back in
+                guard let weekEnd = calendar.date(byAdding: .day, value: -back * 7, to: today) else { return nil }
+                let sum = (0..<7).reduce(0) { acc, d in
+                    guard let day = calendar.date(byAdding: .day, value: -d, to: weekEnd) else { return acc }
+                    return acc + (typedWordsPerDay[day] ?? 0)
+                }
+                let weekStart = calendar.date(byAdding: .day, value: -6, to: weekEnd) ?? weekEnd
+                return WordsSeriesPoint(date: weekStart, value: Double(sum), duration: 0)
+            }
+
+            let typedYearSeries: [WordsSeriesPoint] = stride(from: 11, through: 0, by: -1).compactMap { back in
+                guard let m = calendar.date(byAdding: .month, value: -back, to: currentMonthStart) else { return nil }
+                return WordsSeriesPoint(date: m, value: Double(typedWordsPerMonth[m] ?? 0), duration: 0)
+            }
+
+            // Total range: align the typed series to the SAME month grid the blue
+            // total series uses, so the x-axes match. Fall back to typed months if
+            // the blue series produced none.
+            var typedTotalSeries: [WordsSeriesPoint] = []
+            let totalEarliest = wordsPerMonth.keys.min() ?? typedWordsPerMonth.keys.min()
+            if let earliest = totalEarliest {
+                var cursor = earliest
+                while cursor <= currentMonthStart {
+                    typedTotalSeries.append(WordsSeriesPoint(date: cursor, value: Double(typedWordsPerMonth[cursor] ?? 0), duration: 0))
+                    guard let next = calendar.date(byAdding: .month, value: 1, to: cursor) else { break }
+                    cursor = next
+                }
+            }
+
+            let typedWordsByRange: [WordsRange: [WordsSeriesPoint]] = [
+                .today: typedTodaySeries,
+                .week: typedDailySeries(daysBack: 7),
+                .month: typedDailySeries(daysBack: 30),
+                .sixMonths: typedSixMonthsSeries,
+                .year: typedYearSeries,
+                .total: typedTotalSeries
+            ]
+
             // Top apps
             let appTotal = max(appCounts.values.reduce(0) { $0 + $1.count }, 1)
             let topApps = appCounts
@@ -235,7 +310,9 @@ enum InsightsLoader {
                 dictionaryWords: dictionaryWords,
                 dictionaryReplacements: dictionaryReplacements,
                 enhancedSessions: enhancedSessions,
-                wordsByRange: wordsByRange
+                wordsByRange: wordsByRange,
+                typedWordsByRange: typedWordsByRange,
+                hasTypedData: hasTypedData
             )
         }
 

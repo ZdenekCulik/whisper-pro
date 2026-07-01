@@ -163,7 +163,9 @@ final class TranscriptionDelivery {
             // Only press Enter if we actually pasted into a field; if the text was
             // diverted to the clipboard (no editable target) there's nothing to send.
             if autoSendKey.isEnabled, pasteResult.didPostPasteCommand {
-                try? await Task.sleep(nanoseconds: 500_000_000)
+                // Give the target app a moment to register the pasted text before Enter,
+                // but keep it short so "speak → Enter → sent" feels immediate.
+                try? await Task.sleep(nanoseconds: 250_000_000)
                 CursorPaster.performAutoSend(autoSendKey)
             }
         }

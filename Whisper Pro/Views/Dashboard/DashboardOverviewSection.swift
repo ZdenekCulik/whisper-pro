@@ -30,7 +30,7 @@ private struct OverviewStreakCard: View {
     var body: some View {
         VStack(spacing: 12) {
             StickerAchievementBadge()
-                .frame(width: 92, height: 118)
+                .frame(width: 138, height: 177)
 
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 CountingNumberText("\(streak)", tracking: -0.4)

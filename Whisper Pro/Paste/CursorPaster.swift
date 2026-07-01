@@ -18,7 +18,7 @@ class CursorPaster {
         }
     }
 
-    private static let prePasteDelay: TimeInterval = 0.10
+    private static let prePasteDelay: TimeInterval = 0.05
     private static let pasteShortcutEventDelay: TimeInterval = 0.01
     private static let minimumClipboardRestoreDelay: TimeInterval = 0.25
 

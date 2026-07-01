@@ -3,7 +3,7 @@ import SwiftUI
 import AppKit
 
 struct EmailSupport {
-    private static let supportEmailAddress = "support@trywhisperpro.com"
+    private static let supportEmailAddress = "you@example.com"
     private static let supportEmailSubject = "Whisper Pro Support Request"
 
     static func generateSupportEmailBody() -> String {
@@ -23,7 +23,7 @@ struct EmailSupport {
 
 
         ## 📋 COMMON ISSUES:
-        Check out our Common Issues page before sending an email: https://trywhisperpro.com/common-issues
+        Check out our Common Issues page before sending an email: https://github.com/ZdenekCulik/whisper-pro
         ------------------------
 
         System Information:
