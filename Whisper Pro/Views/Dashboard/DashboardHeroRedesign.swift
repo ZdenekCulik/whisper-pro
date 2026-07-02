@@ -2,8 +2,10 @@ import SwiftUI
 import Charts
 
 // MARK: - Dashboard hero (redesign 2026-07, Zdenek picked V1 "Calm")
-// One wide card: time-saved hero number, cumulative words chart (accent =
-// dictated, gray = typed) and the holographic streak sticker on the right.
+// One wide card: time-saved hero number, cumulative dictated-words chart and
+// the holographic streak sticker on the right. The gray "Napsáno" (typed)
+// line was removed 2026-07: the app is about dictation, and the typed counts
+// proved mostly machine text (see TypedLogIngestor — its ingest stays off).
 // Replaces the old WordsOverTimeCard + OverviewStreakCard pair (kept in the
 // tree, just no longer mounted).
 
@@ -27,15 +29,9 @@ private struct HeroModel {
     let range: WordsRange
 
     var points: [WordsSeriesPoint] { insightsData?.wordsByRange[range] ?? [] }
-    var typedPoints: [WordsSeriesPoint] { insightsData?.typedWordsByRange[range] ?? [] }
     var hasLoaded: Bool { insightsData != nil }
 
-    var showTyped: Bool {
-        (insightsData?.hasTypedData ?? false) && typedPoints.filter { $0.value > 0 }.count >= 2
-    }
-
     var spokenWords: Int { Int(points.reduce(0) { $0 + $1.value }) }
-    var typedWords: Int { showTyped ? Int(typedPoints.reduce(0) { $0 + $1.value }) : 0 }
 
     private var baselineWords: Int {
         Int((insightsData?.wordsByRange[.total] ?? []).reduce(0) { $0 + $1.value })
@@ -78,7 +74,8 @@ private struct HeroModel {
     var xAxisFormat: Date.FormatStyle {
         switch range {
         case .today: return .dateTime.hour()
-        case .week, .month: return .dateTime.day()
+        // Weekday + date ("Mon 29") so the axis shows WHICH day you spent what.
+        case .week, .month: return .dateTime.weekday(.abbreviated).day()
         case .sixMonths, .year, .total: return .dateTime.month(.abbreviated)
         }
     }
@@ -317,10 +314,9 @@ private struct HeroCalmCard: View {
 
             HStack(spacing: 14) {
                 legendItem(color: accent, label: "Nadiktováno", value: HeroModel.compact(m.spokenWords))
-                if m.showTyped {
-                    legendItem(color: theme.resolvedSecondaryText.opacity(0.75), label: "Napsáno", value: HeroModel.compact(m.typedWords))
-                }
-                Text("words · \(selectedRange.caption)")
+                // The range itself is visible on the picker above, so no
+                // "· Last 30 days" caption here — just the unit.
+                Text("words")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(theme.resolvedSecondaryText.opacity(0.8))
             }
@@ -345,7 +341,6 @@ private struct HeroCalmCard: View {
     private func chart(_ m: HeroModel) -> some View {
         if m.points.count >= 2 {
             let spoken = m.cumulative(m.points)
-            let typed = m.showTyped ? m.cumulative(m.typedPoints) : []
             Chart {
                 ForEach(spoken) { p in
                     AreaMark(x: .value("Time", p.date), y: .value("Words", p.value),
@@ -355,13 +350,6 @@ private struct HeroCalmCard: View {
                             LinearGradient(colors: [accent.opacity(0.22), accent.opacity(0.01)],
                                            startPoint: .top, endPoint: .bottom)
                         )
-                }
-                ForEach(typed) { p in
-                    LineMark(x: .value("Time", p.date), y: .value("Words", p.value),
-                             series: .value("Series", "typed"))
-                        .interpolationMethod(.monotone)
-                        .foregroundStyle(theme.resolvedSecondaryText.opacity(0.55))
-                        .lineStyle(.init(lineWidth: 1.5, lineCap: .round))
                 }
                 ForEach(spoken) { p in
                     LineMark(x: .value("Time", p.date), y: .value("Words", p.value),
@@ -415,12 +403,9 @@ private struct HeroCalmCard: View {
     private func tooltip(_ m: HeroModel, at point: WordsSeriesPoint) -> some View {
         // The chart plots running totals, so the tooltip mirrors that.
         let spoken = Int(m.points.reduce(0) { $1.date <= point.date ? $0 + $1.value : $0 })
-        let typed = m.showTyped ? Int(m.typedPoints.reduce(0) { $1.date <= point.date ? $0 + $1.value : $0 }) : 0
-        var rows: [(Color, String, String)] = [(accent, "Nadiktováno", spoken.formatted())]
-        if m.showTyped { rows.append((theme.resolvedSecondaryText.opacity(0.75), "Napsáno", typed.formatted())) }
         return HeroTooltip(
             title: m.tooltipDateText(point.date) + "  ·  total so far",
-            rows: rows,
+            rows: [(accent, "Nadiktováno", spoken.formatted())],
             primaryText: theme.resolvedPrimaryText,
             secondaryText: theme.resolvedSecondaryText
         )
