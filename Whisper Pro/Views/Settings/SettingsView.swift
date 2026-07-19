@@ -426,9 +426,27 @@ private struct PanelLookPreviewCard: View {
         .buttonStyle(.plain)
     }
 
-    // A synthetic wallpaper-like backdrop stands in for the desktop behind the floating
-    // panel. fileprivate so the Waveform demo cards can share it.
+    // The desktop backdrop behind the floating panel: the real macOS wallpaper, loaded
+    // from the system at runtime (it can't ship inside the repo — it's Apple's image).
+    // Falls back to the synthetic gradient if the file ever goes missing.
+    // fileprivate so the Waveform demo cards can share it.
+    private static let systemWallpaper: NSImage? =
+        NSImage(contentsOfFile: "/System/Library/Desktop Pictures/Sonoma.heic")
+
     fileprivate static var stage: some View {
+        ZStack {
+            if let wallpaper = systemWallpaper {
+                Image(nsImage: wallpaper)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                syntheticStage
+            }
+        }
+        .clipped()
+    }
+
+    private static var syntheticStage: some View {
         ZStack {
             LinearGradient(
                 colors: [
