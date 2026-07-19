@@ -3,7 +3,7 @@
   <h1>Whisper Pro</h1>
 
   <p align="center">
-    <img src="docs/cover.jpg" alt="Whisper Pro — dashboard and floating dictation bar" width="100%">
+    <img src="docs/cover.jpg" alt="Whisper Pro, the floating dictation widget" width="100%">
   </p>
 
   <p>A native macOS app that turns your voice into text, almost instantly.</p>
@@ -18,29 +18,15 @@ Whisper Pro is a personal macOS voice-to-text app: press a hotkey, speak, and th
 typed in wherever your cursor is. Transcription runs through your own speech-to-text
 provider (e.g. Soniox), with optional AI cleanup of the text.
 
-It started as a fork of [VoiceInk](https://github.com/Beingpax/VoiceInk) by Prakash Joshi
-(Pax), and has since been heavily reworked and is maintained independently. It's built for
-my own personal use and shared here as-is, under the GPL-3.0 license — not a commercial
-product, no support or roadmap promises.
-
-**Status:** actively used daily by the author (me). Issues and PRs may or may not get a
-response.
-
-**Known quirks:**
-- The bundle id `com.prakashjoshipax.WhisperPro` is inherited from upstream VoiceInk and
-  kept on purpose — changing it would reset existing installs' permissions and data
-  (transcripts, stats, streak).
-- Sparkle auto-update checks are wired up but currently a no-op — the appcast has no
-  published releases yet, so the app won't actually update itself.
-
 ## Why Whisper Pro
 
-- ⚡ **Fastest voice-to-text on macOS** — hotkey, speak, text streams in live
+- ⚡ **Fastest voice-to-text on macOS**: hotkey, speak, text streams in live
 - 🎧 **Auto-pauses your music** while you talk
-- ↩️ **Sends on Enter for you** — dictate → message gone
-- 🔌 **Any engine** — cloud (Soniox) or fully local models
-- 📝 **Learns your words** — personal dictionary & replacements
-- 📊 **Live transcript + stats** — hours saved, streaks
+- ↩️ **Sends on Enter for you**: dictate, and the message is gone
+- 🎓 **English coach**, built from what you actually dictate
+- 🔌 **Any engine**: cloud (Soniox) or fully local models
+- 📝 **Learns your words**: personal dictionary & replacements
+- 📊 **Live transcript + stats**: hours saved, streaks
 
 ## Build from source
 
@@ -53,27 +39,44 @@ make local      # ad-hoc build, no Apple Developer account needed
 ```
 
 For a build whose macOS permissions (Accessibility, Microphone) survive rebuilds, use
-`make signed` instead (signs with your own Apple Development certificate — grant
+`make signed` instead (signs with your own Apple Development certificate, so you grant
 permissions once). To produce a distributable DMG for sharing with someone else, use
 `make dmg`.
 
 After first launch, add your own speech-to-text API key (e.g. Soniox) in the app's
-settings — no keys are bundled in this repo.
+settings. No keys are bundled in this repo.
 
 ## Requirements
 
 - macOS 14.0 or later
 - Xcode (latest)
 
+## About this project
+
+It started as a fork of [VoiceInk](https://github.com/Beingpax/VoiceInk) by Prakash Joshi
+(Pax), and has since been heavily reworked and is maintained independently. It's built for
+my own personal use and shared here as-is, under the GPL-3.0 license: not a commercial
+product, no support or roadmap promises.
+
+**Status:** actively used daily by the author (me). Issues and PRs may or may not get a
+response.
+
+**Known quirks:**
+- The bundle id `com.prakashjoshipax.WhisperPro` is inherited from upstream VoiceInk and
+  kept on purpose. Changing it would reset existing installs' permissions and data
+  (transcripts, stats, streak).
+- Sparkle auto-update checks are wired up but currently a no-op. The appcast has no
+  published releases yet, so the app won't actually update itself.
+
 ## Acknowledgments
 
 Built on these open-source projects:
 
-- [VoiceInk](https://github.com/Beingpax/VoiceInk) by Prakash Joshi (Pax) — the original project this app was forked from
-- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) — on-device Whisper inference
-- [FluidAudio](https://github.com/FluidInference/FluidAudio) — Parakeet model support
+- [VoiceInk](https://github.com/Beingpax/VoiceInk) by Prakash Joshi (Pax), the original project this app was forked from
+- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for on-device Whisper inference
+- [FluidAudio](https://github.com/FluidInference/FluidAudio) for Parakeet model support
 - [Sparkle](https://github.com/sparkle-project/Sparkle), [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts), [LaunchAtLogin](https://github.com/sindresorhus/LaunchAtLogin), [MediaRemoteAdapter](https://github.com/ejbills/mediaremote-adapter), [Zip](https://github.com/marmelroy/Zip), [SelectedTextKit](https://github.com/tisfeng/SelectedTextKit), [Swift Atomics](https://github.com/apple/swift-atomics)
 
 ## License
 
-Licensed under the GNU General Public License v3.0 — see [LICENSE](LICENSE).
+Licensed under the GNU General Public License v3.0, see [LICENSE](LICENSE).
