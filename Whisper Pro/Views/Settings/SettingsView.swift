@@ -432,11 +432,21 @@ private struct PanelLookPreviewCard: View {
     // URL that isn't a loadable image, so fall back to the bundled-with-macOS Sonoma
     // picture, then to the synthetic gradient.
     private static let systemWallpaper: NSImage? = {
+        // 1) A custom stage image dropped into the app's Application Support folder wins
+        //    (lets the author use a specific wallpaper without shipping it in the repo).
+        let custom = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first?
+            .appendingPathComponent("com.prakashjoshipax.VoiceInk/PanelPreviewWallpaper.jpg")
+        if let custom, let image = NSImage(contentsOf: custom), image.isValid {
+            return image
+        }
+        // 2) The user's own desktop wallpaper.
         if let screen = NSScreen.main,
            let url = NSWorkspace.shared.desktopImageURL(for: screen),
            let image = NSImage(contentsOf: url), image.isValid {
             return image
         }
+        // 3) The Sonoma picture every macOS ships with.
         return NSImage(contentsOfFile: "/System/Library/Desktop Pictures/Sonoma.heic")
     }()
 
