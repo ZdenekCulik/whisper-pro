@@ -35,12 +35,12 @@ response.
 
 ## Why Whisper Pro
 
-- ⚡ **The fastest voice-to-text on macOS** — press (or hold) a global hotkey, speak, and the text streams in live, right where your cursor is
-- 🎧 **Auto-pauses your music** while you dictate — and resumes it the moment you're done
-- ↩️ **Dictate → send in one breath** — optional auto-Enter pastes the text and sends the message for you
-- 🔌 **Bring your own engine** — plug in any speech-to-text provider, cloud (e.g. Soniox) or a fully local model
-- 📝 **Personal dictionary & smart replacements** — it learns the names and words you actually use
-- 📊 **Live transcript panel + your own stats** — see the words as you say them, track hours saved and your streak
+- ⚡ **Fastest voice-to-text on macOS** — hotkey, speak, text streams in live
+- 🎧 **Auto-pauses your music** while you talk
+- ↩️ **Sends on Enter for you** — dictate → message gone
+- 🔌 **Any engine** — cloud (Soniox) or fully local models
+- 📝 **Learns your words** — personal dictionary & replacements
+- 📊 **Live transcript + stats** — hours saved, streaks
 
 ## Build from source
 
