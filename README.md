@@ -33,13 +33,14 @@ response.
 - Sparkle auto-update checks are wired up but currently a no-op — the appcast has no
   published releases yet, so the app won't actually update itself.
 
-## Features
+## Why Whisper Pro
 
-- 🎙️ Fast voice-to-text via a global hotkey, pasted right at your cursor
-- ⚡ Modes — per-app / per-context settings for how text is transcribed and formatted
-- 📝 Personal dictionary and smart text replacements
-- 🔄 Live transcript while you speak
-- 📊 Dashboard with your own dictation stats
+- ⚡ **The fastest voice-to-text on macOS** — press (or hold) a global hotkey, speak, and the text streams in live, right where your cursor is
+- 🎧 **Auto-pauses your music** while you dictate — and resumes it the moment you're done
+- ↩️ **Dictate → send in one breath** — optional auto-Enter pastes the text and sends the message for you
+- 🔌 **Bring your own engine** — plug in any speech-to-text provider, cloud (e.g. Soniox) or a fully local model
+- 📝 **Personal dictionary & smart replacements** — it learns the names and words you actually use
+- 📊 **Live transcript panel + your own stats** — see the words as you say them, track hours saved and your streak
 
 ## Build from source
 
