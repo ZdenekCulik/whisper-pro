@@ -5,6 +5,8 @@ struct FluidAudioModelCardView: View {
     let model: FluidAudioModel
     @ObservedObject var fluidAudioModelManager: FluidAudioModelManager
 
+    @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
+
     init(model: FluidAudioModel, fluidAudioModelManager: FluidAudioModelManager) {
         self.model = model
         _fluidAudioModelManager = ObservedObject(wrappedValue: fluidAudioModelManager)
@@ -12,6 +14,10 @@ struct FluidAudioModelCardView: View {
 
     var isDownloaded: Bool {
         fluidAudioModelManager.isFluidAudioModelDownloaded(model)
+    }
+
+    var isActive: Bool {
+        transcriptionModelManager.currentTranscriptionModel?.name == model.name
     }
 
     var isDownloading: Bool {
@@ -102,7 +108,13 @@ struct FluidAudioModelCardView: View {
     private var actionSection: some View {
         HStack(spacing: 8) {
             if isDownloaded {
-                modelStatusPill("Downloaded", systemImage: "checkmark.circle")
+                if isActive {
+                    activeModelPill()
+                } else {
+                    useModelButton {
+                        transcriptionModelManager.setDefaultTranscriptionModel(model)
+                    }
+                }
             } else {
                 Button(action: {
                     Task {

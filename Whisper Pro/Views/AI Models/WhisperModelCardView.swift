@@ -7,10 +7,16 @@ struct WhisperModelCardView: View {
     let downloadProgress: [String: Double]
     let modelURL: URL?
     let isWarming: Bool
-    
+
     // Actions
     var deleteAction: () -> Void
     var downloadAction: () -> Void
+
+    @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
+
+    private var isActive: Bool {
+        transcriptionModelManager.currentTranscriptionModel?.name == model.name
+    }
     private var isDownloading: Bool {
         downloadProgress.keys.contains(model.name + "_main") || 
         downloadProgress.keys.contains(model.name + "_coreml")
@@ -107,7 +113,13 @@ struct WhisperModelCardView: View {
     private var actionSection: some View {
         HStack(spacing: 8) {
             if isDownloaded {
-                modelStatusPill("Downloaded", systemImage: "checkmark.circle")
+                if isActive {
+                    activeModelPill()
+                } else {
+                    useModelButton {
+                        transcriptionModelManager.setDefaultTranscriptionModel(model)
+                    }
+                }
             } else {
                 Button(action: downloadAction) {
                     HStack(spacing: 4) {
@@ -162,6 +174,12 @@ struct ImportedWhisperModelCardView: View {
 
     var deleteAction: () -> Void
 
+    @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
+
+    private var isActive: Bool {
+        transcriptionModelManager.currentTranscriptionModel?.name == model.name
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
@@ -183,7 +201,13 @@ struct ImportedWhisperModelCardView: View {
 
             HStack(spacing: 8) {
                 if isDownloaded {
-                    modelStatusPill("Imported", systemImage: "checkmark.circle")
+                    if isActive {
+                        activeModelPill()
+                    } else {
+                        useModelButton {
+                            transcriptionModelManager.setDefaultTranscriptionModel(model)
+                        }
+                    }
                 }
 
                 if isDownloaded {
@@ -252,4 +276,36 @@ func modelStatusPill(_ text: String, systemImage: String) -> some View {
         .padding(.vertical, 4)
         .background(AppTheme.Surface.card)
         .clipShape(Capsule())
+}
+
+func activeModelPill() -> some View {
+    HStack(spacing: 5) {
+        Circle()
+            .fill(AppTheme.Status.positive)
+            .frame(width: 6, height: 6)
+
+        Text("Active")
+            .font(.system(size: 11, weight: .medium))
+            .foregroundColor(AppTheme.Status.positive)
+    }
+    .padding(.horizontal, 8)
+    .padding(.vertical, 4)
+    .background(AppTheme.Status.positive.opacity(0.12))
+    .clipShape(Capsule())
+}
+
+func useModelButton(action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+        Text("Use")
+            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(AppTheme.Accent.primary)
+                    .shadow(color: AppTheme.Accent.shadow, radius: 2, x: 0, y: 1)
+            )
+    }
+    .buttonStyle(.plain)
 }

@@ -6,7 +6,13 @@ struct CustomModelCardView: View {
     let model: CustomCloudModel
     var deleteAction: () -> Void
     var editAction: (CustomCloudModel) -> Void
-    
+
+    @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
+
+    private var isActive: Bool {
+        transcriptionModelManager.currentTranscriptionModel?.name == model.name
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Main card content
@@ -68,7 +74,13 @@ struct CustomModelCardView: View {
     
     private var actionSection: some View {
         HStack(spacing: 8) {
-            modelStatusPill("Configured", systemImage: "checkmark.circle")
+            if isActive {
+                activeModelPill()
+            } else {
+                useModelButton {
+                    transcriptionModelManager.setDefaultTranscriptionModel(model)
+                }
+            }
 
             Menu {
                 Button {

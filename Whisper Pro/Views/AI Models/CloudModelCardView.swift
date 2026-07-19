@@ -25,6 +25,10 @@ struct CloudModelCardView: View {
     private var isConfigured: Bool {
         return APIKeyManager.shared.hasAPIKey(forProvider: providerKey)
     }
+
+    private var isActive: Bool {
+        transcriptionModelManager.currentTranscriptionModel?.name == model.name
+    }
     
     private var providerKey: String {
         CloudProviderRegistry.provider(for: model.provider)?.providerKey ?? model.provider.rawValue
@@ -119,7 +123,13 @@ struct CloudModelCardView: View {
     private var actionSection: some View {
         HStack(spacing: 8) {
             if isConfigured {
-                modelStatusPill("Connected", systemImage: "checkmark.circle")
+                if isActive {
+                    activeModelPill()
+                } else {
+                    useModelButton {
+                        transcriptionModelManager.setDefaultTranscriptionModel(model)
+                    }
+                }
             } else {
                 Button(action: {
                     withAnimation(.interpolatingSpring(stiffness: 170, damping: 20)) {

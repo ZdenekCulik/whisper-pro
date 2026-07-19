@@ -87,6 +87,8 @@ struct ModelManagementView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    currentlyUsingSection
+
                     if SystemArchitecture.isIntelMac {
                         intelMacWarningBanner
                     }
@@ -203,6 +205,75 @@ struct ModelManagementView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var currentlyUsingSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text("Currently Using")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                if transcriptionModelManager.currentTranscriptionModel != nil {
+                    activeModelPill()
+                }
+            }
+
+            if let model = transcriptionModelManager.currentTranscriptionModel {
+                ModelCardView(
+                    model: model,
+                    fluidAudioModelManager: fluidAudioModelManager,
+                    isDownloaded: isCurrentModelDownloaded(model),
+                    downloadProgress: whisperModelManager.downloadProgress,
+                    modelURL: whisperModelManager.availableModels.first { $0.name == model.name }?.url,
+                    isWarming: isCurrentModelWarming(model),
+                    deleteAction: { confirmDeleteCurrentModel(model) },
+                    downloadAction: {},
+                    editAction: { customModel in openCustomTranscriptionModelPanel(customModel) }
+                )
+            } else {
+                noActiveModelHint
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var noActiveModelHint: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "cpu")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Color(.secondaryLabelColor))
+
+            Text("No model active yet — connect a provider below.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(Color(.secondaryLabelColor))
+
+            Spacer()
+        }
+        .padding(16)
+        .background(AppMaterialCardBackground())
+    }
+
+    private func isCurrentModelDownloaded(_ model: any TranscriptionModel) -> Bool {
+        whisperModelManager.availableModels.contains { $0.name == model.name }
+    }
+
+    private func isCurrentModelWarming(_ model: any TranscriptionModel) -> Bool {
+        guard let whisperModel = model as? WhisperModel else { return false }
+        return warmupCoordinator.isWarming(modelNamed: whisperModel.name)
+    }
+
+    private func confirmDeleteCurrentModel(_ model: any TranscriptionModel) {
+        switch model.provider {
+        case .whisper:
+            confirmDeleteLocalModel(model)
+        case .custom:
+            if let customModel = model as? CustomCloudModel {
+                confirmDeleteCustomModel(customModel)
+            }
+        default:
+            break
+        }
     }
 
     private var modelFilterPicker: some View {
