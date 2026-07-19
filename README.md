@@ -1,6 +1,11 @@
 <div align="center">
   <img src="Whisper Pro/Assets.xcassets/AppIcon.appiconset/256-mac.png" width="160" height="160" />
   <h1>Whisper Pro</h1>
+
+  <p align="center">
+    <img src="docs/cover.jpg" alt="Whisper Pro — dashboard and floating dictation bar" width="100%">
+  </p>
+
   <p>A native macOS app that turns your voice into text, almost instantly.</p>
 
   ![Platform](https://img.shields.io/badge/platform-macOS%2014.0%2B-brightgreen)

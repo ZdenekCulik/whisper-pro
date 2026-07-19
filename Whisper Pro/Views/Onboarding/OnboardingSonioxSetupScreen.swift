@@ -28,7 +28,7 @@ struct OnboardingSonioxSetupScreen: View {
                 SonioxSetupLinkStepRow(
                     number: 2,
                     title: "Add credit",
-                    description: "Top up $5 in Billing — that covers roughly 2+ months of daily dictation.",
+                    description: "Top up $5 in Billing — that's roughly 27 hours of speaking (about 185,000 words).",
                     buttonTitle: "Open Billing",
                     url: URL(string: "https://console.soniox.com/billing")!
                 )

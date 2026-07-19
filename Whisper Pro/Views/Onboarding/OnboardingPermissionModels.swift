@@ -5,8 +5,6 @@ enum OnboardingStage: String, CaseIterable {
     case microphone
     case model
     case api
-    case experience
-    case contextAwareness
     case trust
 
     var stepNumber: Int {
@@ -19,12 +17,8 @@ enum OnboardingStage: String, CaseIterable {
             return 3
         case .api:
             return 4
-        case .experience:
-            return 5
-        case .contextAwareness:
-            return 6
         case .trust:
-            return 7
+            return 5
         }
     }
 
@@ -38,10 +32,6 @@ enum OnboardingStage: String, CaseIterable {
             return "cloud"
         case .api:
             return "checkmark.seal"
-        case .experience:
-            return "square.grid.2x2.fill"
-        case .contextAwareness:
-            return "slider.horizontal.3"
         case .trust:
             return "lock.shield"
         }
@@ -57,10 +47,6 @@ enum OnboardingStage: String, CaseIterable {
             return String(localized: "Set up Soniox")
         case .api:
             return String(localized: "Verify API Key")
-        case .experience:
-            return String(localized: "Experience Whisper Pro")
-        case .contextAwareness:
-            return String(localized: "Whisper Pro is Context-Aware")
         case .trust:
             return String(localized: "Whisper Pro is Open Source")
         }
@@ -76,10 +62,6 @@ enum OnboardingStage: String, CaseIterable {
             return String(localized: "Connect Soniox so Whisper Pro can transcribe your dictation.")
         case .api:
             return String(localized: "Whisper Pro uses LLMs to enhance transcripts and perform AI actions. Set up an API key before continuing.")
-        case .experience:
-            return String(localized: "Try a few short samples and see how Whisper Pro works before you start.")
-        case .contextAwareness:
-            return String(localized: "Whisper Pro can select the right mode from the app you are using and the rules you configure.")
         case .trust:
             return String(localized: "Whisper Pro is private by default. No data leaves your device unless you opt in.")
         }

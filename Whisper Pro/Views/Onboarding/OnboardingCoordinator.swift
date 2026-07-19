@@ -20,12 +20,6 @@ final class OnboardingCoordinator: ObservableObject {
         }
     }
 
-    @Published var experienceStepIndex: Int {
-        didSet {
-            defaults.set(experienceStepIndex, forKey: OnboardingStorageKeys.experienceIndex)
-        }
-    }
-
     @Published var storedOnboardingAIProvider: String {
         didSet {
             defaults.set(storedOnboardingAIProvider, forKey: OnboardingStorageKeys.aiProvider)
@@ -47,11 +41,6 @@ final class OnboardingCoordinator: ObservableObject {
     @Published var permissionStatuses: [OnboardingPermissionKind: OnboardingPermissionStatus] = [:]
     @Published var isSelectedAPIProviderVerified = false
     @Published var isShowingSkipAPISetupWarning = false
-    @Published var hasExperienceModeShortcut = false
-    @Published var isExperienceModeInstalled = false
-    @Published var experienceTextByKind: [OnboardingExperienceKind: String] = [:]
-    @Published var isExperienceInIntroPhase = true
-    @Published var clearedExperienceShortcutActions: Set<ShortcutAction> = []
 
     let defaults: UserDefaults
     var refreshTask: Task<Void, Never>?
@@ -63,7 +52,6 @@ final class OnboardingCoordinator: ObservableObject {
         self.storedStage = defaults.string(forKey: OnboardingStorageKeys.stage) ?? OnboardingStage.permissions.rawValue
         self.storedActivePermission = defaults.string(forKey: OnboardingStorageKeys.activePermission) ?? OnboardingPermissionKind.microphone.rawValue
         self.hasRequestedScreenRecording = defaults.bool(forKey: OnboardingStorageKeys.requestedScreenRecording)
-        self.experienceStepIndex = defaults.integer(forKey: OnboardingStorageKeys.experienceIndex)
         self.storedOnboardingAIProvider = defaults.string(forKey: OnboardingStorageKeys.aiProvider) ?? AIProvider.groq.rawValue
         self.hasSkippedAPISetup = defaults.bool(forKey: OnboardingStorageKeys.skippedAPISetup)
         self.hasSkippedSonioxSetup = defaults.bool(forKey: OnboardingStorageKeys.skippedSonioxSetup)
@@ -78,11 +66,17 @@ final class OnboardingCoordinator: ObservableObject {
             return stage
         }
 
-        if storedStage == "starterMode" || storedStage == "shortcut" {
-            return .experience
+        // Legacy/removed stage raw values from older builds: route them to the closest
+        // stage that still exists in the current sequence so a mid-flight upgrade can't
+        // strand the user on dead UI or skip mode installation.
+        switch storedStage {
+        case "starterMode", "shortcut", "experience", "contextAwareness", "parakeet":
+            return .model
+        case "license":
+            return .trust
+        default:
+            return .permissions
         }
-
-        return storedStage == "parakeet" ? .model : .permissions
     }
 
     var activePermission: OnboardingPermissionKind {
@@ -103,103 +97,15 @@ final class OnboardingCoordinator: ObservableObject {
     }
 
     var currentStepNumber: Int {
-        if stage == .experience {
-            return experienceStepNumber(for: normalizedExperienceStepIndex)
-        }
-
-        if stage == .contextAwareness {
-            return contextAwarenessStepNumber
-        }
-
         if stage == .trust {
-            return OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 1
+            return OnboardingStage.baseStepCount + 1
         }
 
         return stage.stepNumber
     }
 
     var totalStepCount: Int {
-        OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 1
-    }
-
-    var experienceStep: OnboardingExperienceStep {
-        if activeExperienceSteps.indices.contains(normalizedExperienceStepIndex) {
-            return activeExperienceSteps[normalizedExperienceStepIndex]
-        }
-
-        return OnboardingExperienceCatalog.steps[0]
-    }
-
-    var experienceModeTemplate: StarterModeTemplate {
-        StarterModeCatalog.templates.first { $0.kind == experienceStep.starterModeKind } ?? StarterModeCatalog.templates[0]
-    }
-
-    var normalizedExperienceStepIndex: Int {
-        min(max(experienceStepIndex, 0), max(activeExperienceSteps.count - 1, 0))
-    }
-
-    var isLastExperienceStep: Bool {
-        normalizedExperienceStepIndex == activeExperienceSteps.count - 1
-    }
-
-    var experienceShortcutAction: ShortcutAction {
-        experienceStep.shortcutAction(modeTemplate: experienceModeTemplate)
-    }
-
-    var shouldSkipCurrentExperienceIntro: Bool {
-        experienceStep.shouldSkipShortcutIntro(
-            hasConfiguredShortcut: ShortcutStore.shortcut(for: experienceShortcutAction) != nil
-        )
-    }
-
-    var shouldShowContextAwarenessAfterCurrentExperience: Bool {
-        let nextIndex = normalizedExperienceStepIndex + 1
-        return experienceStep.showsContextAwarenessAfterCompletion &&
-            activeExperienceSteps.indices.contains(nextIndex)
-    }
-
-    var shouldShowContextAwarenessBeforeCurrentExperience: Bool {
-        let previousIndex = normalizedExperienceStepIndex - 1
-        guard activeExperienceSteps.indices.contains(previousIndex) else {
-            return false
-        }
-
-        return activeExperienceSteps[previousIndex].showsContextAwarenessAfterCompletion
-    }
-
-    var isShowingExperienceIntroPhase: Bool {
-        isExperienceInIntroPhase && !shouldSkipCurrentExperienceIntro
-    }
-
-    var currentExperienceText: Binding<String> {
-        Binding(
-            get: { [weak self] in
-                guard let self else { return "" }
-                return experienceTextByKind[experienceStep.kind] ?? experienceStep.initialFieldText
-            },
-            set: { [weak self] newValue in
-                guard let self else { return }
-                var updatedText = experienceTextByKind
-                updatedText[experienceStep.kind] = newValue
-                experienceTextByKind = updatedText
-            }
-        )
-    }
-
-    var isCurrentExperienceComplete: Bool {
-        if !experienceStep.requiresTextChangeForCompletion {
-            return true
-        }
-
-        let text = experienceTextByKind[experienceStep.kind] ?? ""
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let initialText = experienceStep.initialFieldText.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if !initialText.isEmpty {
-            return !trimmedText.isEmpty && trimmedText != initialText
-        }
-
-        return !trimmedText.isEmpty
+        OnboardingStage.baseStepCount + 1
     }
 
     var onboardingProviderOptions: [AIProvider] {
@@ -229,43 +135,6 @@ final class OnboardingCoordinator: ObservableObject {
 
             return first.rawValue < second.rawValue
         }
-    }
-
-    var activeExperienceSteps: [OnboardingExperienceStep] {
-        if hasSkippedAPISetup && !isSelectedAPIProviderVerified {
-            return OnboardingExperienceCatalog.steps.filter { !$0.requiresVerifiedAPIProvider }
-        }
-
-        return OnboardingExperienceCatalog.steps
-    }
-
-    private var contextAwarenessInsertionIndices: [Int] {
-        activeExperienceSteps.indices.compactMap { index in
-            let nextIndex = index + 1
-            guard activeExperienceSteps[index].showsContextAwarenessAfterCompletion,
-                  activeExperienceSteps.indices.contains(nextIndex) else {
-                return nil
-            }
-
-            return nextIndex
-        }
-    }
-
-    private var contextAwarenessStepCount: Int {
-        contextAwarenessInsertionIndices.count
-    }
-
-    private var contextAwarenessStepNumber: Int {
-        guard let insertionIndex = contextAwarenessInsertionIndices.first else {
-            return OnboardingStage.baseStepCount + activeExperienceSteps.count + 1
-        }
-
-        return OnboardingStage.baseStepCount + insertionIndex + 1
-    }
-
-    private func experienceStepNumber(for index: Int) -> Int {
-        let priorContextScreens = contextAwarenessInsertionIndices.filter { $0 <= index }.count
-        return OnboardingStage.baseStepCount + index + priorContextScreens + 1
     }
 
     var selectedOnboardingProvider: AIProvider {
@@ -308,13 +177,6 @@ final class OnboardingCoordinator: ObservableObject {
             hasSelectedOnboardingMicrophone &&
             (hasSonioxAPIKey || hasSkippedSonioxSetup)
     }
-
-    func isCurrentExperienceReady(isTranscriptionModelDownloaded: Bool) -> Bool {
-        isReadyForExperience(isTranscriptionModelDownloaded: isTranscriptionModelDownloaded) &&
-            isExperienceModeInstalled &&
-            hasExperienceModeShortcut
-    }
-
 }
 
 enum OnboardingStorageKeys {
