@@ -52,7 +52,15 @@ final class OnboardingFlowController {
     }
 
     func goToTrustStep(isTranscriptionModelDownloaded: Bool) {
-        guard coordinator.isReadyForExperience(isTranscriptionModelDownloaded: isTranscriptionModelDownloaded) else { return }
+        guard coordinator.isReadyForExperience(isTranscriptionModelDownloaded: isTranscriptionModelDownloaded) else {
+            // Never let "Continue"/"Skip" from the Soniox screen be a dead click: if the
+            // readiness check fails here (e.g. a permission got revoked mid-onboarding —
+            // see the ad-hoc-signing permission reset issue — or state raced during a
+            // `reconcileStage` triggered by the app regaining focus), send the user back
+            // to whatever step they're actually missing instead of doing nothing.
+            goToFirstIncompleteSetupStep(isTranscriptionModelDownloaded: isTranscriptionModelDownloaded)
+            return
+        }
         coordinator.storedStage = OnboardingStage.trust.rawValue
     }
 
@@ -124,8 +132,23 @@ final class OnboardingFlowController {
         }
     }
 
-    func completeOnboarding(onComplete: () -> Void) {
-        guard coordinator.stage == .trust else { return }
+    func completeOnboarding(
+        isTranscriptionModelDownloaded: Bool,
+        onComplete: () -> Void
+    ) {
+        guard coordinator.stage == .trust else {
+            // The Trust screen's "Get Started" button must never be a dead click. Under
+            // normal conditions `coordinator.stage` is always `.trust` here — that's the
+            // precondition for this screen (and its button) to be on screen at all. It can
+            // only read otherwise if the stage raced away between render and tap (e.g. a
+            // `reconcileStage` run — triggered by the app regaining focus, or a permission
+            // getting silently revoked, see the ad-hoc-signing permission reset issue —
+            // lands in the same beat as the tap, while the old screen is still visible and
+            // tappable mid cross-fade). Route the user to whatever they're actually missing
+            // instead of silently eating the click.
+            goToFirstIncompleteSetupStep(isTranscriptionModelDownloaded: isTranscriptionModelDownloaded)
+            return
+        }
 
         OnboardingStorageKeys.onboardingKeys.forEach {
             coordinator.defaults.removeObject(forKey: $0)

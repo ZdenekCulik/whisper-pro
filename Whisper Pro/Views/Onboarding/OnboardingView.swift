@@ -102,7 +102,9 @@ struct OnboardingView: View {
                         contentMaxWidth: contentMaxWidth,
                         onBack: coordinator.flow.goToPreviousTrustStep,
                         onContinue: {
-                            coordinator.flow.completeOnboarding {
+                            coordinator.flow.completeOnboarding(
+                                isTranscriptionModelDownloaded: isTranscriptionModelDownloaded
+                            ) {
                                 hasCompletedOnboardingV2 = true
                             }
                         }
