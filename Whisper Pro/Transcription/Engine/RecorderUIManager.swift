@@ -112,9 +112,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
         guard let engine = engine else { return }
         await engine.cancelRecording()
 
-        pasteHintDismissTask?.cancel()
-        pasteHintDismissTask = nil
-        engine.pasteHintText = nil
+        clearPasteHint()
         cancelCoachSuggestionDisplay()
 
         switch recorderPanelStyle {
@@ -269,9 +267,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     func dismissRecorderPanel() async {
         guard let engine = engine else { return }
 
-        pasteHintDismissTask?.cancel()
-        pasteHintDismissTask = nil
-        engine.pasteHintText = nil
+        clearPasteHint()
 
         cancelCoachSuggestionDisplay()
         hideRecorderPanel()
@@ -307,9 +303,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     func resetOnLaunch() async {
         guard let engine = engine else { return }
         logger.notice("Resetting recording state on launch")
-        pasteHintDismissTask?.cancel()
-        pasteHintDismissTask = nil
-        engine.pasteHintText = nil
+        clearPasteHint()
         cancelCoachSuggestionDisplay()
         await engine.resetRecordingSession()
         hideRecorderPanel()
@@ -411,5 +405,11 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
         coachDismissTask?.cancel()
         coachDismissTask = nil
         EnglishCoachService.shared.clearSuggestion()
+    }
+
+    private func clearPasteHint() {
+        pasteHintDismissTask?.cancel()
+        pasteHintDismissTask = nil
+        engine?.pasteHintText = nil
     }
 }

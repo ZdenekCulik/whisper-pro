@@ -7,25 +7,8 @@ import SwiftData
 /// empty state on every visit while `InsightsLoader.load` re-ran its full scan.
 /// Seeding fresh view state from this cache means the last known numbers stay on
 /// screen until the new load actually completes.
-final class InsightsDataCache: @unchecked Sendable {
-    static let shared = InsightsDataCache()
-
-    private let lock = NSLock()
-    private var data: InsightsData?
-
-    private init() {}
-
-    func current() -> InsightsData? {
-        lock.lock()
-        defer { lock.unlock() }
-        return data
-    }
-
-    func update(_ data: InsightsData) {
-        lock.lock()
-        self.data = data
-        lock.unlock()
-    }
+enum InsightsDataCache {
+    static let shared = LatestValueCache<InsightsData>()
 }
 
 /// Aggregates stored `SessionMetric` rows into the `InsightsData` the panel renders.

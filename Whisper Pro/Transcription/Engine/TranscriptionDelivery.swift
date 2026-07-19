@@ -160,7 +160,10 @@ final class TranscriptionDelivery {
         // Check editability up front (not just inside CursorPaster) so we know
         // whether to dismiss now or leave the panel up to show the paste hint.
         guard CursorPaster.focusedElementLikelyEditable() else {
-            _ = ClipboardManager.setClipboard(pastedText, transient: false, sessionID: nil)
+            // transient: true tags the dictated text as auto-generated/transient
+            // (org.nspasteboard) so clipboard managers like Maccy/Raycast don't
+            // permanently store it — it stays pasteable via ⌘V either way.
+            _ = ClipboardManager.setClipboard(pastedText, transient: true, sessionID: nil)
             await actions.showPasteHint()
             return
         }

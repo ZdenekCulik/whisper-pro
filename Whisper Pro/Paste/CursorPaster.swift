@@ -51,7 +51,10 @@ class CursorPaster {
         // and, with clipboard-restore on, would also drop the text). Instead just
         // leave the transcript on the clipboard so it can be pasted later with ⌘V.
         if !focusedElementLikelyEditable() {
-            _ = ClipboardManager.setClipboard(text, transient: false, sessionID: nil)
+            // transient: true tags the dictated text as auto-generated/transient
+            // (org.nspasteboard) so clipboard managers like Maccy/Raycast don't
+            // permanently store it — it stays pasteable via ⌘V either way.
+            _ = ClipboardManager.setClipboard(text, transient: true, sessionID: nil)
             NotificationManager.shared.showNotification(
                 title: String(localized: "Copied to clipboard — paste anywhere with ⌘V"),
                 type: .success

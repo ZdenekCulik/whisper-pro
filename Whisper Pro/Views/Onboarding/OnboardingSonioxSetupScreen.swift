@@ -84,29 +84,6 @@ private struct SonioxNumberBadge: View {
     }
 }
 
-private struct SonioxOpenLinkButton: View {
-    let title: String
-    let url: URL
-
-    var body: some View {
-        Button {
-            NSWorkspace.shared.open(url)
-        } label: {
-            HStack(spacing: 5) {
-                Text(title)
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 9, weight: .semibold))
-            }
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(AppTheme.Text.secondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(Capsule().fill(AppTheme.Surface.controlActive))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 private struct SonioxSetupLinkStepRow: View {
     let number: Int
     let title: String
@@ -128,7 +105,7 @@ private struct SonioxSetupLinkStepRow: View {
                     .foregroundColor(AppTheme.Text.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                SonioxOpenLinkButton(title: buttonTitle, url: url)
+                ExternalLinkButton(title: buttonTitle, url: url, hasPillBackground: true)
                     .padding(.top, 2)
             }
 
@@ -170,9 +147,10 @@ private struct SonioxConnectStepRow: View {
                     .foregroundColor(AppTheme.Text.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                SonioxOpenLinkButton(
+                ExternalLinkButton(
                     title: "Open API Keys",
-                    url: URL(string: "https://console.soniox.com/api-keys")!
+                    url: URL(string: "https://console.soniox.com/api-keys")!,
+                    hasPillBackground: true
                 )
                 .padding(.top, 2)
 

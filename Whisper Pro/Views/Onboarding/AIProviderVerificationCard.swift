@@ -111,18 +111,7 @@ struct AIProviderVerificationCard: View {
                 Spacer()
 
                 if let apiKeyURL {
-                    Button {
-                        NSWorkspace.shared.open(apiKeyURL)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text("Get API key")
-                            Image(systemName: "arrow.up.right")
-                                .font(.system(size: 9, weight: .semibold))
-                        }
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(AppTheme.Text.secondary)
-                    }
-                    .buttonStyle(.plain)
+                    ExternalLinkButton(title: String(localized: "Get API key"), url: apiKeyURL)
                 }
             }
 

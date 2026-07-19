@@ -166,34 +166,6 @@ struct OnboardingView: View {
                         }
                     )
                         .transition(.opacity)
-                case .license:
-                    OnboardingLicenseScreen(
-                        licenseViewModel: coordinator.licenseViewModel,
-                        onBack: {
-                            coordinator.flow.goToPreviousLicenseStep(
-                                isTranscriptionModelDownloaded: isTranscriptionModelDownloaded
-                            )
-                        },
-                        onPurchase: {
-                            coordinator.licenseViewModel.openPurchaseLink()
-                        },
-                        onStartTrial: {
-                            coordinator.flow.startLicenseTrial(
-                                isTranscriptionModelDownloaded: isTranscriptionModelDownloaded
-                            ) {
-                                hasCompletedOnboardingV2 = true
-                            }
-                        },
-                        onActivate: coordinator.flow.activateLicense,
-                        onFinish: {
-                            coordinator.flow.completeOnboarding(
-                                isTranscriptionModelDownloaded: isTranscriptionModelDownloaded
-                            ) {
-                                hasCompletedOnboardingV2 = true
-                            }
-                        }
-                    )
-                        .transition(.opacity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

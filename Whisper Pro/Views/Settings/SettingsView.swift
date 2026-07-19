@@ -426,13 +426,45 @@ private struct PanelLookPreviewCard: View {
         .buttonStyle(.plain)
     }
 
-    // A real bundled macOS wallpaper stands in for the desktop behind the floating
+    // A synthetic wallpaper-like backdrop stands in for the desktop behind the floating
     // panel. fileprivate so the Waveform demo cards can share it.
     fileprivate static var stage: some View {
-        Image("PanelPreviewWallpaper")
-            .resizable()
-            .scaledToFill()
-            .clipped()
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0x1a / 255, green: 0x21 / 255, blue: 0x51 / 255),
+                    Color(red: 0x4a / 255, green: 0x3f / 255, blue: 0x78 / 255),
+                    Color(red: 0x2d / 255, green: 0x6a / 255, blue: 0x8a / 255),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Circle()
+                .fill(RadialGradient(
+                    colors: [Color(red: 0x4a / 255, green: 0x3f / 255, blue: 0x78 / 255), .clear],
+                    center: .center, startRadius: 0, endRadius: 110
+                ))
+                .frame(width: 170, height: 170)
+                .blur(radius: 28)
+                .offset(x: -65, y: -35)
+            Circle()
+                .fill(RadialGradient(
+                    colors: [Color(red: 0x2d / 255, green: 0x6a / 255, blue: 0x8a / 255), .clear],
+                    center: .center, startRadius: 0, endRadius: 95
+                ))
+                .frame(width: 150, height: 150)
+                .blur(radius: 28)
+                .offset(x: 75, y: 25)
+            Circle()
+                .fill(RadialGradient(
+                    colors: [Color(red: 0x1a / 255, green: 0x21 / 255, blue: 0x51 / 255).opacity(0.85), .clear],
+                    center: .center, startRadius: 0, endRadius: 85
+                ))
+                .frame(width: 130, height: 130)
+                .blur(radius: 24)
+                .offset(x: 15, y: 45)
+        }
+        .clipped()
     }
 
     @ViewBuilder

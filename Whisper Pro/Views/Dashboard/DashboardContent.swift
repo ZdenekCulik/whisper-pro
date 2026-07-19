@@ -10,25 +10,11 @@ private struct DashboardStatsSummary: Equatable, Sendable {
     var wordsToday: Int = 0
 }
 
-private final class DashboardStatsCache: @unchecked Sendable {
-    static let shared = DashboardStatsCache()
-
-    private let lock = NSLock()
-    private var summary: DashboardStatsSummary?
-
-    private init() {}
-
-    func currentSummary() -> DashboardStatsSummary? {
-        lock.lock()
-        defer { lock.unlock() }
-        return summary
-    }
-
-    func update(_ summary: DashboardStatsSummary) {
-        lock.lock()
-        self.summary = summary
-        lock.unlock()
-    }
+/// Caches the last loaded summary across DashboardContent re-mounts (tab
+/// switches destroy and recreate the view, which would otherwise reset
+/// totals to 0/"–" and flash the loading placeholders every time).
+private enum DashboardStatsCache {
+    static let shared = LatestValueCache<DashboardStatsSummary>()
 }
 
 private enum DashboardStatsLoader {
@@ -121,7 +107,7 @@ struct DashboardContent: View {
         self.licenseState = licenseState
         self.onAddLicenseKey = onAddLicenseKey
 
-        let cachedSummary = DashboardStatsCache.shared.currentSummary()
+        let cachedSummary = DashboardStatsCache.shared.current()
         _totalCount = State(initialValue: cachedSummary?.totalCount ?? 0)
         _totalWords = State(initialValue: cachedSummary?.totalWords ?? 0)
         _totalDuration = State(initialValue: cachedSummary?.totalDuration ?? 0)

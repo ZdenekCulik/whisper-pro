@@ -35,6 +35,8 @@ make dev
 - `make setup` - Prepare the whisper framework for linking
 - `make build` - Build the Whisper Pro Xcode project
 - `make local` - Build for local use (no Apple Developer certificate needed)
+- `make signed` - Stable signed dev build, installed to /Applications (survives rebuilds without re-granting Accessibility/Microphone permissions)
+- `make dmg` - Build a distributable DMG (`dist/WhisperPro-<version>.dmg`) for sharing the app with someone else
 - `make run` - Launch the built Whisper Pro app
 - `make dev` - Build and run (ideal for development workflow)
 - `make all` - Complete build process (default)
@@ -75,6 +77,50 @@ The `make local` command uses:
 - `LOCAL_BUILD` Swift compilation flag for conditional code paths
 
 Your normal `make all` / `make build` commands are completely unaffected.
+
+---
+
+## Stable Signed Dev Build (`make signed`)
+
+Ad-hoc signed builds (`make local`) get a new signature on every rebuild, so macOS makes
+you re-grant Accessibility and Microphone permissions each time. `make signed` fixes that
+by signing with your own Apple Development certificate and installing to
+`/Applications/Whisper Pro.app` — same signature every time, so permissions granted once
+survive future rebuilds.
+
+```bash
+make signed
+```
+
+To use your own certificate (instead of the placeholder), create an untracked
+`Makefile.local` in the repo root:
+
+```make
+SIGN_IDENTITY := Apple Development: you@example.com (YOURTEAMID)
+DEV_TEAM := YOURTEAMID
+```
+
+Find your identity with `security find-identity -v -p codesigning`. `Makefile.local` is
+gitignored, so your personal signing identity never ends up in the repo.
+
+## Distributable DMG (`make dmg`)
+
+To build a `.dmg` you can hand to someone else:
+
+```bash
+make dmg
+```
+
+By default this reuses your `SIGN_IDENTITY` (Apple Development), which is enough to
+produce a runnable DMG — the other person just has to right-click → "Open Anyway" past
+Gatekeeper once. If you have a paid Apple Developer Program membership, set your own
+`DIST_IDENTITY` in `Makefile.local` for a proper Developer ID + notarized build:
+
+```make
+DIST_IDENTITY := Developer ID Application: You (YOURTEAMID)
+```
+
+See `scripts/make-dmg.sh` for the full packaging pipeline.
 
 ---
 

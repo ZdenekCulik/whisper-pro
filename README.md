@@ -13,8 +13,20 @@ Whisper Pro is a personal macOS voice-to-text app: press a hotkey, speak, and th
 typed in wherever your cursor is. Transcription runs through your own speech-to-text
 provider (e.g. Soniox), with optional AI cleanup of the text.
 
-This is a private fork that I build and run for myself — it's not a commercial product and
-isn't sold or distributed publicly.
+It started as a fork of [VoiceInk](https://github.com/Beingpax/VoiceInk) by Prakash Joshi
+(Pax), and has since been heavily reworked and is maintained independently. It's built for
+my own personal use and shared here as-is, under the GPL-3.0 license — not a commercial
+product, no support or roadmap promises.
+
+**Status:** actively used daily by the author (me). Issues and PRs may or may not get a
+response.
+
+**Known quirks:**
+- The bundle id `com.prakashjoshipax.WhisperPro` is inherited from upstream VoiceInk and
+  kept on purpose — changing it would reset existing installs' permissions and data
+  (transcripts, stats, streak).
+- Sparkle auto-update checks are wired up but currently a no-op — the appcast has no
+  published releases yet, so the app won't actually update itself.
 
 ## Features
 
@@ -34,6 +46,11 @@ cd whisper-pro
 make local      # ad-hoc build, no Apple Developer account needed
 ```
 
+For a build whose macOS permissions (Accessibility, Microphone) survive rebuilds, use
+`make signed` instead (signs with your own Apple Development certificate — grant
+permissions once). To produce a distributable DMG for sharing with someone else, use
+`make dmg`.
+
 After first launch, add your own speech-to-text API key (e.g. Soniox) in the app's
 settings — no keys are bundled in this repo.
 
@@ -46,6 +63,7 @@ settings — no keys are bundled in this repo.
 
 Built on these open-source projects:
 
+- [VoiceInk](https://github.com/Beingpax/VoiceInk) by Prakash Joshi (Pax) — the original project this app was forked from
 - [whisper.cpp](https://github.com/ggerganov/whisper.cpp) — on-device Whisper inference
 - [FluidAudio](https://github.com/FluidInference/FluidAudio) — Parakeet model support
 - [Sparkle](https://github.com/sparkle-project/Sparkle), [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts), [LaunchAtLogin](https://github.com/sindresorhus/LaunchAtLogin), [MediaRemoteAdapter](https://github.com/ejbills/mediaremote-adapter), [Zip](https://github.com/marmelroy/Zip), [SelectedTextKit](https://github.com/tisfeng/SelectedTextKit), [Swift Atomics](https://github.com/apple/swift-atomics)

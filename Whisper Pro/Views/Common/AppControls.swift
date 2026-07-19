@@ -1,5 +1,37 @@
 import SwiftUI
 import Foundation
+import AppKit
+
+/// A text + arrow-up-right button that opens `url` in the default browser.
+/// `hasPillBackground` toggles the filled capsule look (onboarding step rows)
+/// vs. a bare inline link (e.g. next to a field label).
+struct ExternalLinkButton: View {
+    let title: String
+    let url: URL
+    var hasPillBackground: Bool = false
+
+    var body: some View {
+        Button {
+            NSWorkspace.shared.open(url)
+        } label: {
+            HStack(spacing: hasPillBackground ? 5 : 4) {
+                Text(title)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .font(.system(size: hasPillBackground ? 12 : 11, weight: .semibold))
+            .foregroundColor(AppTheme.Text.secondary)
+            .padding(.horizontal, hasPillBackground ? 12 : 0)
+            .padding(.vertical, hasPillBackground ? 7 : 0)
+            .background {
+                if hasPillBackground {
+                    Capsule().fill(AppTheme.Surface.controlActive)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
 
 struct AppIconButton: View {
     let systemName: String

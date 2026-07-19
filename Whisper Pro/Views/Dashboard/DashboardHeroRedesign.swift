@@ -18,38 +18,6 @@ struct DashboardHeroSection: View {
 
 // MARK: - Shared model helpers
 
-enum DashboardChartStyle: String, CaseIterable, Identifiable {
-    case activity = "calendar"
-    case bars
-    case growth
-
-    var id: String { rawValue }
-
-    var shortLabel: String {
-        switch self {
-        case .activity: return "V1"
-        case .bars: return "V3"
-        case .growth: return "Line"
-        }
-    }
-
-    var displayName: String {
-        switch self {
-        case .activity: return "V1 — Activity Grid"
-        case .bars: return "V3 — Daily Bars"
-        case .growth: return "Line — Growing Curve"
-        }
-    }
-
-    var accessibilityLabel: String {
-        switch self {
-        case .activity: return "Calendar activity chart"
-        case .bars: return "Words bar chart"
-        case .growth: return "Cumulative words curve"
-        }
-    }
-}
-
 /// Data slice + formatting for the hero card.
 private struct HeroModel {
     let stats: DashboardStats
@@ -79,19 +47,6 @@ private struct HeroModel {
 
     var currentStreak: Int { insightsData?.currentStreak ?? 0 }
     var longestStreak: Int { insightsData?.longestStreak ?? 0 }
-
-    var activityDays: [InsightsData.DayActivity] {
-        guard let days = insightsData?.days else { return [] }
-        let count: Int
-        switch range {
-        case .today: count = 1
-        case .week: count = 7
-        case .month: count = 30
-        case .sixMonths: count = 26 * 7
-        case .year, .total: count = 52 * 7
-        }
-        return Array(days.suffix(count))
-    }
 
     static func durationText(_ interval: TimeInterval) -> String {
         guard interval > 0 else { return "0m" }
@@ -140,16 +95,6 @@ private struct HeroModel {
         case .sixMonths: return "Week of " + date.formatted(.dateTime.month(.abbreviated).day())
         case .year: return date.formatted(.dateTime.month(.wide).year())
         case .total: return date.formatted(.dateTime.weekday(.wide).month(.wide).day().year())
-        }
-    }
-
-    var barWidth: MarkDimension {
-        switch range {
-        case .today: return .inset(4)
-        case .week: return .inset(10)
-        case .month, .sixMonths: return .inset(2)
-        case .year: return .inset(4)
-        case .total: return .inset(0.5)
         }
     }
 
@@ -282,118 +227,6 @@ private struct HeroHoverCapture: View {
     }
 }
 
-// MARK: - Chart variants
-
-/// V1 — calendar heatmap inspired by year-at-a-glance activity charts.
-private struct HeroCalendarHeatmap: View {
-    let days: [InsightsData.DayActivity]
-    let range: WordsRange
-    let accent: Color
-    let inactive: Color
-
-    private var calendar: Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.firstWeekday = 2
-        return calendar
-    }
-
-    private var weekCount: Int {
-        switch range {
-        case .today, .week: return 1
-        case .month: return 5
-        case .sixMonths: return 26
-        case .year, .total: return 52
-        }
-    }
-
-    var body: some View {
-        GeometryReader { geometry in
-            let gap = min(3, max(1, geometry.size.width / CGFloat(weekCount * 6)))
-            let availableWidth = max(1, geometry.size.width - CGFloat(weekCount - 1) * gap)
-            let cell = max(1, min(15, availableWidth / CGFloat(weekCount)))
-            let columns = calendarColumns()
-
-            VStack(alignment: .leading, spacing: 7) {
-                ZStack(alignment: .topLeading) {
-                    ForEach(columns.indices, id: \.self) { index in
-                        if let label = monthLabel(for: columns[index].first?.date, at: index, columns: columns) {
-                            Text(label)
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundColor(inactive.opacity(0.9))
-                                .offset(x: CGFloat(index) * (cell + gap))
-                        }
-                    }
-                }
-                .frame(height: 11)
-
-                HStack(alignment: .top, spacing: gap) {
-                    ForEach(Array(columns.enumerated()), id: \.offset) { _, week in
-                        VStack(spacing: gap) {
-                            ForEach(week) { day in
-                                RoundedRectangle(cornerRadius: max(1, min(3, cell * 0.22)), style: .continuous)
-                                    .fill(color(for: day.count))
-                                    .frame(width: cell, height: cell)
-                                    .help(dayHelp(day))
-                                    .accessibilityLabel(dayHelp(day))
-                            }
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        }
-        .frame(height: 148)
-        .clipped()
-    }
-
-    private func calendarColumns() -> [[InsightsData.DayActivity]] {
-        let endDate = days.last?.date ?? Date()
-        let weekday = calendar.component(.weekday, from: endDate)
-        let daysSinceMonday = (weekday - calendar.firstWeekday + 7) % 7
-        let endWeekStart = calendar.date(byAdding: .day, value: -daysSinceMonday, to: calendar.startOfDay(for: endDate)) ?? endDate
-        let startDate = calendar.date(byAdding: .weekOfYear, value: -(weekCount - 1), to: endWeekStart) ?? endWeekStart
-        let values = Dictionary(uniqueKeysWithValues: days.map { (calendar.startOfDay(for: $0.date), $0.count) })
-
-        return (0..<weekCount).map { week in
-            (0..<7).compactMap { weekday in
-                guard let date = calendar.date(byAdding: .day, value: week * 7 + weekday, to: startDate) else { return nil }
-                return InsightsData.DayActivity(date: date, count: values[date] ?? 0)
-            }
-        }
-    }
-
-    private func monthLabel(
-        for date: Date?,
-        at index: Int,
-        columns: [[InsightsData.DayActivity]]
-    ) -> String? {
-        guard let date else { return nil }
-        let month = calendar.component(.month, from: date)
-        if index > 0,
-           let previous = columns[index - 1].first?.date,
-           calendar.component(.month, from: previous) == month {
-            return nil
-        }
-        return date.formatted(.dateTime.month(.abbreviated))
-    }
-
-    private func color(for count: Int) -> Color {
-        guard count > 0 else { return inactive.opacity(0.11) }
-        let peak = max(days.map(\.count).max() ?? 1, 1)
-        let ratio = Double(count) / Double(peak)
-        switch ratio {
-        case ..<0.18: return accent.opacity(0.30)
-        case ..<0.42: return accent.opacity(0.50)
-        case ..<0.72: return accent.opacity(0.74)
-        default: return accent
-        }
-    }
-
-    private func dayHelp(_ day: InsightsData.DayActivity) -> String {
-        "\(day.date.formatted(.dateTime.month(.abbreviated).day())) · \(day.count) sessions"
-    }
-}
-
 // MARK: - The hero card
 
 private struct HeroCalmCard: View {
@@ -402,10 +235,6 @@ private struct HeroCalmCard: View {
     let animate: Bool
 
     @AppStorage("dashboardWordsRange") private var selectedRange: WordsRange = .total
-    // Only the growth-curve chart is offered anymore (Settings' Overview Chart
-    // picker was removed) — hardcoded so a leftover persisted pick can't resurrect
-    // a dead chart style.
-    private let chartVariant: DashboardChartStyle = .growth
     @EnvironmentObject private var theme: ThemeManager
     @State private var hovered: WordsSeriesPoint?
 
@@ -491,72 +320,11 @@ private struct HeroCalmCard: View {
 
     @ViewBuilder
     private func chart(_ m: HeroModel) -> some View {
-        if chartVariant == .activity, !m.activityDays.isEmpty {
-            HeroCalendarHeatmap(
-                days: m.activityDays,
-                range: displayRange,
-                accent: accent,
-                inactive: theme.resolvedSecondaryText
-            )
-            .id(chartVariant)
-            .transition(.opacity.combined(with: .scale(scale: 0.985)))
-        } else if chartVariant == .bars, m.points.count >= 2 {
-            let bars = Chart {
-                ForEach(m.points) { point in
-                    BarMark(
-                        x: .value("Time", point.date),
-                        y: .value("Words", point.value),
-                        width: m.barWidth
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [accent.opacity(0.78), accent],
-                            startPoint: .bottom,
-                            endPoint: .top
-                        )
-                    )
-                    .cornerRadius(1.25)
-                    .opacity(hovered == nil || hovered?.date == point.date ? 1 : 0.38)
-                }
-                if let hovered {
-                    RuleMark(x: .value("Time", hovered.date))
-                        .foregroundStyle(theme.resolvedSecondaryText.opacity(0.25))
-                        .lineStyle(.init(lineWidth: 1))
-                        .annotation(position: .top, spacing: 6,
-                                    overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
-                            barTooltip(m, at: hovered)
-                        }
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
-                    AxisGridLine().foregroundStyle(theme.resolvedSecondaryText.opacity(0.07))
-                    AxisValueLabel {
-                        if let words = value.as(Double.self) {
-                            Text(HeroModel.compact(Int(words)))
-                        }
-                    }
-                    .font(.system(size: 9))
-                    .foregroundStyle(theme.resolvedSecondaryText)
-                }
-            }
-            .chartXAxis {
-                AxisMarks(values: m.xAxisValues) { _ in
-                    AxisValueLabel(format: m.xAxisFormat)
-                        .font(.system(size: 10))
-                        .foregroundStyle(theme.resolvedSecondaryText)
-                }
-            }
-            .chartOverlay { proxy in
-                HeroHoverCapture(proxy: proxy, points: m.points, hovered: $hovered)
-            }
-            .animation(.easeOut(duration: 0.12), value: hovered)
-
-            bars
-            .frame(height: 148)
-            .id(chartVariant)
-            .transition(.opacity.combined(with: .scale(scale: 0.985)))
-        } else if chartVariant == .growth, m.points.count >= 2 {
+        // Only the growth-curve (cumulative line) chart is offered anymore — the
+        // Settings' Overview Chart picker that used to switch between an activity
+        // heatmap, daily bars, and this growth curve was removed, so this is the
+        // only branch left besides the loading/empty states below.
+        if m.points.count >= 2 {
             let cumulative = m.cumulative(m.points)
             Chart {
                 ForEach(cumulative) { point in
@@ -607,7 +375,6 @@ private struct HeroCalmCard: View {
             }
             .animation(.easeOut(duration: 0.12), value: hovered)
             .frame(height: 148)
-            .id(chartVariant)
             .transition(.opacity.combined(with: .scale(scale: 0.985)))
         } else if !m.hasLoaded {
             // No insights loaded yet and nothing cached from a previous view — the
@@ -636,21 +403,6 @@ private struct HeroCalmCard: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 148)
-    }
-
-    private func barTooltip(_ m: HeroModel, at point: WordsSeriesPoint) -> some View {
-        var rows: [(color: Color, label: String, value: String)] = [
-            (accent, "Dictated", "\(Int(point.value).formatted()) words")
-        ]
-        if point.duration > 0 {
-            rows.append((theme.resolvedSecondaryText, "Duration", HeroModel.durationText(point.duration)))
-        }
-        return HeroTooltip(
-            title: m.tooltipDateText(point.date),
-            rows: rows,
-            primaryText: theme.resolvedPrimaryText,
-            secondaryText: theme.resolvedSecondaryText
-        )
     }
 
     private func growthTooltip(_ m: HeroModel, at point: WordsSeriesPoint) -> some View {

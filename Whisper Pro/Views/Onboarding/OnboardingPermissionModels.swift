@@ -8,7 +8,6 @@ enum OnboardingStage: String, CaseIterable {
     case experience
     case contextAwareness
     case trust
-    case license
 
     var stepNumber: Int {
         switch self {
@@ -26,8 +25,6 @@ enum OnboardingStage: String, CaseIterable {
             return 6
         case .trust:
             return 7
-        case .license:
-            return 8
         }
     }
 
@@ -47,8 +44,6 @@ enum OnboardingStage: String, CaseIterable {
             return "slider.horizontal.3"
         case .trust:
             return "lock.shield"
-        case .license:
-            return "checkmark.seal.fill"
         }
     }
 
@@ -68,8 +63,6 @@ enum OnboardingStage: String, CaseIterable {
             return String(localized: "Whisper Pro is Context-Aware")
         case .trust:
             return String(localized: "Whisper Pro is Open Source")
-        case .license:
-            return String(localized: "Buy Whisper Pro License")
         }
     }
 
@@ -89,8 +82,6 @@ enum OnboardingStage: String, CaseIterable {
             return String(localized: "Whisper Pro can select the right mode from the app you are using and the rules you configure.")
         case .trust:
             return String(localized: "Whisper Pro is private by default. No data leaves your device unless you opt in.")
-        case .license:
-            return String(localized: "Activate an existing key, purchase a license, or start a 7-day free trial.")
         }
     }
 

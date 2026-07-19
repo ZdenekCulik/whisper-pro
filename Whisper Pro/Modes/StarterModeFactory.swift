@@ -1,18 +1,13 @@
-import AppKit
 import Foundation
 
 enum StarterModeFactory {
     static func install(
         kinds: [StarterModeKind],
         provider: AIProvider,
-        modelName: String?,
-        installedApps: [InstalledAppInfo]? = nil
+        modelName: String?
     ) {
         let manager = ModeManager.shared
         let requestedKinds = Set(kinds)
-        let availableInstalledApps = requestedKinds.contains(.email)
-            ? (installedApps ?? InstalledApps.load())
-            : []
 
         let starterConfigs = StarterModeCatalog.templates
             .filter { requestedKinds.contains($0.kind) }
@@ -20,8 +15,7 @@ enum StarterModeFactory {
                 makeConfig(
                     from: $0,
                     provider: provider,
-                    modelName: modelName,
-                    installedApps: availableInstalledApps
+                    modelName: modelName
                 )
             }
 
@@ -57,8 +51,7 @@ enum StarterModeFactory {
     private static func makeConfig(
         from template: StarterModeTemplate,
         provider: AIProvider,
-        modelName: String?,
-        installedApps: [InstalledAppInfo]
+        modelName: String?
     ) -> ModeConfig {
         ModeConfig(
             id: template.id,
@@ -66,7 +59,7 @@ enum StarterModeFactory {
             icon: template.icon,
             appConfigs: nil,
             urlConfigs: nil,
-            triggerGroups: triggerGroups(for: template.kind, installedApps: installedApps),
+            triggerGroups: nil,
             isAIEnhancementEnabled: template.usesAIEnhancement,
             selectedPrompt: template.promptId?.uuidString,
             // Transcription model and language are deliberately NOT pinned per-mode —
@@ -89,24 +82,4 @@ enum StarterModeFactory {
             isDefault: template.isDefault
         )
     }
-
-    private static func triggerGroups(
-        for kind: StarterModeKind,
-        installedApps: [InstalledAppInfo]
-    ) -> [ModeTriggerGroup]? {
-        guard kind == .email,
-              let emailTemplate = TriggerTemplateCatalog.templates.first(where: { $0.id == "email" }) else {
-            return nil
-        }
-
-        let group = emailTemplate.availableGroup(
-            installedApps: installedApps,
-            existingAppBundleIds: [],
-            existingWebsites: [],
-            cleanURL: ModeManager.shared.cleanURL
-        )
-
-        return group.isEmpty ? nil : [group]
-    }
-
 }

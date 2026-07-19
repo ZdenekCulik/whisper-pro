@@ -51,10 +51,15 @@ extension ModeManager {
         migrateLegacyShortcutStorageIfNeeded()
     }
 
-    /// Safety net for the rare case where no mode configuration exists at all (e.g. a state
-    /// before onboarding's StarterModeFactory has run). Real onboarded users already have a
-    /// "Dictation" default mode from StarterModeFactory, so this normally never fires.
+    /// Safety net for onboarded users who somehow ended up with no mode configuration at all
+    /// (e.g. a corrupted defaults write). Gated on onboarding having completed: on a fresh
+    /// install this must NOT run, because it fires in ModeManager's init — before onboarding's
+    /// StarterModeFactory has created the real starter modes — and would otherwise leave a
+    /// synthetic "Dictation" mode with a random UUID installed permanently. Runtime resolvers
+    /// already fall back to the global transcription defaults when no mode exists, so a fresh
+    /// install is fine without this until onboarding runs.
     func ensureDefaultConfigurationExists() {
+        guard UserDefaults.standard.bool(forKey: "hasCompletedOnboardingV2") else { return }
         guard configurations.isEmpty else { return }
 
         let dictationMode = ModeConfig(
@@ -77,14 +82,19 @@ extension ModeManager {
     /// One-time migration: with the Modes UI hidden, the global AI Models tab / Settings
     /// language chips must become authoritative. The runtime resolver already falls back to
     /// those globals whenever a mode's selectedTranscriptionModelName/selectedLanguage are nil
-    /// (see ModeRuntimeResolver), so this only needs to: (1) copy whatever model the current
-    /// default/active mode was pinned to into the global "CurrentTranscriptionModel" key, so
-    /// existing dictation behavior doesn't change the moment this ships, then (2) clear the
-    /// mode's own pin so the global setting drives it from now on. Every other field of the
-    /// mode (AI enhancement config, output mode, isRealtimeTranscriptionEnabled, etc.) is left
-    /// untouched. Guarded by a UserDefaults flag so it only ever runs once.
+    /// (see ModeRuntimeResolver), so this only needs to: (1) copy whatever model/language the
+    /// current default/active mode was pinned to into the global "CurrentTranscriptionModel" /
+    /// "SelectedLanguage" keys, so existing dictation behavior doesn't change the moment this
+    /// ships, then (2) clear the mode's own pins so the global settings drive them from now on.
+    /// Every other field of the mode (AI enhancement config, output mode,
+    /// isRealtimeTranscriptionEnabled, etc.) is left untouched. Guarded by a UserDefaults flag
+    /// so it only ever runs once, and only for users who already completed onboarding — on a
+    /// fresh install this fires before onboarding's StarterModeFactory has created any real
+    /// modes, so there's nothing meaningful to migrate yet.
     func migrateToGlobalTranscriptionDefaultsIfNeeded() {
         let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: "hasCompletedOnboardingV2") else { return }
+
         let migrationKey = "hasMigratedModeToGlobalDefaultsV1"
         guard !defaults.bool(forKey: migrationKey) else { return }
         defaults.set(true, forKey: migrationKey)
@@ -93,6 +103,9 @@ extension ModeManager {
               let pinnedModelName = mode.selectedTranscriptionModelName else { return }
 
         defaults.set(pinnedModelName, forKey: "CurrentTranscriptionModel")
+        if let pinnedLanguage = mode.selectedLanguage {
+            defaults.set(pinnedLanguage, forKey: "SelectedLanguage")
+        }
         mode.selectedTranscriptionModelName = nil
         mode.selectedLanguage = nil
         updateConfiguration(mode)

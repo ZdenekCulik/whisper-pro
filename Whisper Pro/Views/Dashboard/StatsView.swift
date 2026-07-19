@@ -12,25 +12,8 @@ private struct StatsSummary: Equatable, Sendable {
 /// Caches the last loaded summary across StatsView re-mounts (tab switches
 /// destroy and recreate the view, which would otherwise reset totals to 0/"–"
 /// and flash the loading placeholders every time — mirrors `DashboardStatsCache`.
-private final class StatsSummaryCache: @unchecked Sendable {
-    static let shared = StatsSummaryCache()
-
-    private let lock = NSLock()
-    private var summary: StatsSummary?
-
-    private init() {}
-
-    func currentSummary() -> StatsSummary? {
-        lock.lock()
-        defer { lock.unlock() }
-        return summary
-    }
-
-    func update(_ summary: StatsSummary) {
-        lock.lock()
-        self.summary = summary
-        lock.unlock()
-    }
+private enum StatsSummaryCache {
+    static let shared = LatestValueCache<StatsSummary>()
 }
 
 private enum StatsSummaryLoader {
@@ -101,7 +84,7 @@ struct StatsView: View {
     private var accent: Color { theme.resolvedAccent ?? .accentColor }
 
     init() {
-        let cachedSummary = StatsSummaryCache.shared.currentSummary()
+        let cachedSummary = StatsSummaryCache.shared.current()
         _totalCount = State(initialValue: cachedSummary?.totalCount ?? 0)
         _totalWords = State(initialValue: cachedSummary?.totalWords ?? 0)
         _totalDuration = State(initialValue: cachedSummary?.totalDuration ?? 0)

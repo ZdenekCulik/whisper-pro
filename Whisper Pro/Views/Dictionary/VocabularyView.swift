@@ -67,11 +67,13 @@ struct VocabularyView: View {
 
                     FlowLayout(spacing: 8) {
                         ForEach(suggestions) { suggestion in
-                            VocabularySuggestionChipView(
+                            VocabularyWordView(
                                 word: suggestion.word,
                                 onAdd: { addSuggestion(suggestion) },
-                                onDismiss: { dismissSuggestion(suggestion) }
-                            )
+                                isDraft: true
+                            ) {
+                                dismissSuggestion(suggestion)
+                            }
                         }
                     }
                     .padding(.vertical, 4)
@@ -97,7 +99,7 @@ struct VocabularyView: View {
 
                     FlowLayout(spacing: 8) {
                         ForEach(sortedItems) { item in
-                            VocabularyWordView(item: item) {
+                            VocabularyWordView(word: item.word) {
                                 removeWord(item)
                             }
                         }
@@ -157,17 +159,32 @@ struct VocabularyView: View {
     }
 }
 
+/// Renders one word chip. Used both for saved vocabulary words (solid border,
+/// primary text, delete button) and for draft suggestions (`isDraft: true` —
+/// dashed border, secondary text, plus an add button before the dismiss button).
 struct VocabularyWordView: View {
-    let item: VocabularyWord
+    let word: String
+    var onAdd: (() -> Void)? = nil
+    var isDraft: Bool = false
     let onDelete: () -> Void
     @State private var isDeleteHovered = false
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(item.word)
+            Text(word)
                 .font(.system(size: 13))
                 .lineLimit(1)
-                .foregroundColor(.primary)
+                .foregroundColor(isDraft ? .secondary : .primary)
+
+            if let onAdd {
+                Button(action: onAdd) {
+                    Image(systemName: "plus.circle.fill")
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("Add to vocabulary")
+            }
 
             Button(action: onDelete) {
                 Image(systemName: "xmark.circle.fill")
@@ -176,7 +193,7 @@ struct VocabularyWordView: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.borderless)
-            .help("Remove word")
+            .help(isDraft ? "Dismiss suggestion" : "Remove word")
             .onHover { hover in
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isDeleteHovered = hover
@@ -187,60 +204,17 @@ struct VocabularyWordView: View {
         .padding(.vertical, 6)
         .background {
             RoundedRectangle(cornerRadius: 6)
-                .fill(AppTheme.Surface.window.opacity(0.4))
+                .fill(isDraft ? AppTheme.Surface.subtle : AppTheme.Surface.window.opacity(0.4))
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(AppTheme.Border.subtle, lineWidth: 1)
-        }
-        .shadow(color: Color.black.opacity(0.05), radius: 2, y: 1)
-    }
-}
-
-struct VocabularySuggestionChipView: View {
-    let word: String
-    let onAdd: () -> Void
-    let onDismiss: () -> Void
-    @State private var isDismissHovered = false
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text(word)
-                .font(.system(size: 13))
-                .lineLimit(1)
-                .foregroundColor(.secondary)
-
-            Button(action: onAdd) {
-                Image(systemName: "plus.circle.fill")
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.borderless)
-            .help("Add to vocabulary")
-
-            Button(action: onDismiss) {
-                Image(systemName: "xmark.circle.fill")
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(isDismissHovered ? AppTheme.Status.error : .secondary)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.borderless)
-            .help("Dismiss suggestion")
-            .onHover { hover in
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isDismissHovered = hover
-                }
+            if isDraft {
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(AppTheme.Border.subtle, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            } else {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(AppTheme.Border.subtle, lineWidth: 1)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(AppTheme.Surface.subtle)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(AppTheme.Border.subtle, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-        }
+        .shadow(color: isDraft ? .clear : Color.black.opacity(0.05), radius: isDraft ? 0 : 2, y: isDraft ? 0 : 1)
     }
 }
