@@ -8,15 +8,13 @@ struct EnglishCoachView: View {
     @AppStorage("englishCoachEnabled") private var enabled = false
     @Query(sort: \CoachNote.timestamp, order: .reverse) private var notes: [CoachNote]
 
-    private let green = Color(red: 0.30, green: 0.80, blue: 0.45)
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
 
                 if enabled && !notes.isEmpty {
-                    phrasesCard
+                    stackedSideNoteCard
                 } else {
                     emptyState
                 }
@@ -30,34 +28,45 @@ struct EnglishCoachView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("English coach")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(theme.resolvedPrimaryText)
-            Text("Gentle corrections the coach picked up from your English dictations.")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(theme.resolvedSecondaryText)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("English coach")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(theme.resolvedPrimaryText)
+                Text("Gentle corrections the coach picked up from your English dictations.")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(theme.resolvedSecondaryText)
+            }
+
+            Spacer()
+
+            if enabled && !notes.isEmpty {
+                Text("\(notes.count) learned")
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundColor(theme.resolvedSecondaryText)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(theme.resolvedSecondaryText.opacity(0.08)))
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var phrasesCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Phrases learned")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(theme.resolvedPrimaryText)
-                Spacer()
-                Text("\(notes.count) learned")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(theme.resolvedSecondaryText)
-            }
+    // MARK: - Stacked pair + side note
 
-            VStack(alignment: .leading, spacing: 14) {
+    private var stackedSideNoteCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Phrases learned")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(theme.resolvedPrimaryText)
+
+            VStack(alignment: .leading, spacing: 0) {
                 ForEach(notes) { note in
-                    row(note)
+                    stackedSideNoteRow(note)
+
                     if note.id != notes.last?.id {
-                        Divider().overlay(theme.resolvedSecondaryText.opacity(0.12))
+                        Divider()
+                            .overlay(theme.resolvedSecondaryText.opacity(0.10))
                     }
                 }
             }
@@ -67,27 +76,37 @@ struct EnglishCoachView: View {
         .background(AppCardBackground(cornerRadius: 28))
     }
 
-    private func row(_ note: CoachNote) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+    @ViewBuilder
+    private func stackedSideNoteRow(_ note: CoachNote) -> some View {
+        HStack(alignment: .center, spacing: 18) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(note.said)
-                    .font(.system(size: 13.5, weight: .medium))
-                    .foregroundColor(theme.resolvedSecondaryText)
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(theme.resolvedSecondaryText.opacity(0.7))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(theme.resolvedSecondaryText.opacity(0.6))
+
                 Text(note.corrected)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(green)
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundColor(AppTheme.Status.positive)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             if !note.why.isEmpty {
+                Rectangle()
+                    .fill(theme.resolvedSecondaryText.opacity(0.12))
+                    .frame(width: 1)
+                    .frame(minHeight: 30)
+
                 Text(note.why)
-                    .font(.custom("Bradley Hand", size: 13).weight(.semibold))
-                    .foregroundColor(theme.resolvedSecondaryText.opacity(0.85))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(theme.resolvedSecondaryText.opacity(0.75))
+                    .frame(width: 168, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 13)
     }
+
+    // MARK: - Empty state
 
     private var emptyState: some View {
         VStack(spacing: 10) {

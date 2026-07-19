@@ -14,9 +14,9 @@ struct InsightsV1Refined: View {
     private var accent: Color { theme.resolvedAccent ?? .accentColor }
 
     /// Fixed height for the activity/streak row — tall enough for the streak card's
-    /// sticker + labels (~230pt) so neither column overflows into the row below.
+    /// sticker + labels (~240pt) so neither column overflows into the row below.
     /// The heatmap sizes by cell count, not width, so this is stable across widths.
-    private let topRowHeight: CGFloat = 228
+    private let topRowHeight: CGFloat = 240
 
     var body: some View {
         VStack(spacing: 12) {
@@ -57,7 +57,7 @@ struct InsightsV1Refined: View {
         card(fillHeight: true, contentAlignment: .center) {
             VStack(spacing: 10) {
                 StickerAchievementBadge()
-                    .frame(width: 86, height: 108)
+                    .frame(width: 97, height: 122)
                 VStack(spacing: 1) {
                     CountingNumberText("\(data.currentStreak)")
                         .font(.system(size: 26, weight: .bold))

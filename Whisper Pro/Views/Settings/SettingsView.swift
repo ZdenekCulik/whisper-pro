@@ -4,30 +4,20 @@ import Carbon.HIToolbox
 import LaunchAtLogin
 
 struct SettingsView: View {
-    @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var updaterViewModel: UpdaterViewModel
     @EnvironmentObject private var menuBarManager: MenuBarManager
     @EnvironmentObject private var recordingShortcutManager: RecordingShortcutManager
     @EnvironmentObject private var recorderUIManager: RecorderUIManager
-    @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
-    @EnvironmentObject private var enhancementService: AIEnhancementService
-    @ObservedObject private var mediaController = MediaController.shared
-    @ObservedObject private var playbackController = PlaybackController.shared
     @ObservedObject private var themeManager = ThemeManager.shared
     @ObservedObject private var widgetVariantStore = WidgetVariantStore.shared
-    @ObservedObject private var stickerVariantStore = StickerVariantStore.shared
-    @AppStorage("hasCompletedOnboardingV2") private var hasCompletedOnboardingV2 = true
-    @AppStorage("enableAnnouncements") private var enableAnnouncements = true
     @AppStorage("restoreClipboardAfterPaste") private var restoreClipboardAfterPaste = true
-    @AppStorage("dashboardHeroVariant") private var dashboardLayout: DashboardHeroVariant = .overview
     @AppStorage("clipboardRestoreDelay") private var clipboardRestoreDelay = 2.0
-    @AppStorage(PasteMethod.userDefaultsKey) private var pasteMethodRawValue = PasteMethod.standard.rawValue
-    @State private var showResetOnboardingAlert = false
+    @AppStorage("WaveformStyle") private var waveformStyle = 0
     @State private var hasCancelRecordingShortcut = ShortcutStore.shortcut(for: .cancelRecorder) != nil
     @State private var cancelRecordingShortcutRecorderResetID = 0
 
-    @State private var isMiddleClickExpanded = false
     @State private var isRestoreClipboardExpanded = false
+    @State private var preferredLanguageCodes = Set(UserDefaults.standard.preferredLanguageHints)
+    @StateObject private var previewAudioSimulator = FakeSpeechAudioSimulator()
 
     var body: some View {
         Form {
@@ -70,31 +60,6 @@ struct SettingsView: View {
                         withAnimation { recordingShortcutManager.secondaryRecordingShortcut = .custom }
                     }
                 }
-            } header: {
-                Text("Shortcuts")
-            }
-
-            Section("Additional Shortcuts") {
-                LabeledContent("Paste Last Transcription (Original)") {
-                    ShortcutRecorder(action: .pasteLastTranscription) {
-                        recordingShortcutManager.updateShortcutStatus()
-                    }
-                        .controlSize(.small)
-                }
-
-                LabeledContent("Paste Last Transcription (Enhanced)") {
-                    ShortcutRecorder(action: .pasteLastEnhancement) {
-                        recordingShortcutManager.updateShortcutStatus()
-                    }
-                        .controlSize(.small)
-                }
-
-                LabeledContent("Retry Last Transcription") {
-                    ShortcutRecorder(action: .retryLastTranscription) {
-                        recordingShortcutManager.updateShortcutStatus()
-                    }
-                        .controlSize(.small)
-                }
 
                 LabeledContent("Cancel Recording") {
                     HStack(spacing: 8) {
@@ -122,26 +87,8 @@ struct SettingsView: View {
                     guard let action = notification.object as? ShortcutAction, action == .cancelRecorder else { return }
                     hasCancelRecordingShortcut = ShortcutStore.shortcut(for: .cancelRecorder) != nil
                 }
-
-                ExpandableSettingsRow(
-                    isExpanded: $isMiddleClickExpanded,
-                    isEnabled: $recordingShortcutManager.isMiddleClickToggleEnabled,
-                    label: "Middle-Click Recording"
-                ) {
-                    LabeledContent("Activation Delay") {
-                        HStack {
-                            TextField("", value: $recordingShortcutManager.middleClickActivationDelay, formatter: {
-                                let formatter = NumberFormatter()
-                                formatter.minimum = 0
-                                return formatter
-                            }())
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 60)
-                            Text("ms")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
+            } header: {
+                Text("Shortcuts")
             }
 
             Section("Pasting") {
@@ -161,24 +108,25 @@ struct SettingsView: View {
                         Text("5s").tag(5.0)
                     }
                 }
+            }
 
-                Picker(selection: $pasteMethodRawValue) {
-                    ForEach(PasteMethod.allCases) { method in
-                        Text(method.displayName).tag(method.rawValue)
+            Section {
+                // A wrapping flow, not a grid: LazyVGrid's adaptive column tracks (min
+                // 120pt each) center every chip inside its own oversized track, which
+                // read as a boxed-off area with big gaps between short chips and stranded
+                // "+ Add another" on its own row. FlowLayout instead hugs each chip's
+                // real width so this sits like a plain native settings row.
+                FlowLayout(spacing: 8) {
+                    ForEach(selectedLanguages) { language in
+                        selectedLanguageChip(language)
                     }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text("Paste Method")
-                        InfoTip("Default uses simulated Cmd+V key events. AppleScript can help when custom keyboard layouts do not paste correctly.")
-                    }
+                    addLanguageMenu
                 }
-                .pickerStyle(.menu)
-                .onChange(of: pasteMethodRawValue) { _, newValue in
-                    guard let method = PasteMethod(rawValue: newValue) else {
-                        pasteMethodRawValue = PasteMethod.standard.rawValue
-                        return
-                    }
-                    PasteMethod.setCurrent(method)
+                .padding(.vertical, 4)
+            } header: {
+                HStack(spacing: 4) {
+                    Text("Languages")
+                    InfoTip("Languages you dictate in. Whisper Pro auto-detects among these. At least one language must stay selected.")
                 }
             }
 
@@ -197,146 +145,62 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
 
-                Picker("Panel Look", selection: $widgetVariantStore.variant) {
-                    ForEach(WidgetVariant.allCases) { variant in
-                        Text(variant.label).tag(variant)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Panel Look")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 12) {
+                        ForEach(WidgetVariant.allCases) { variant in
+                            PanelLookPreviewCard(
+                                variant: variant,
+                                isSelected: widgetVariantStore.variant == variant,
+                                audioMeter: previewAudioSimulator.meter
+                            ) {
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    widgetVariantStore.variant = variant
+                                }
+                            }
+                        }
+                        Spacer(minLength: 0)
                     }
                 }
-                .pickerStyle(.menu)
+                .padding(.vertical, 4)
 
-                HStack {
-                    Spacer()
-                    widgetVariantStore.variant.makeView(
-                        WidgetVariantContext(
-                            committed: "Live preview",
-                            partial: " of this panel",
-                            audioMeter: AudioMeter(averagePower: 0.45, peakPower: 0.7),
-                            recordingState: .recording
-                        )
-                    )
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+                // The segmented picker was removed — the preview cards below are the
+                // single control now (selection border + tap), same as Panel Look.
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Waveform")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
 
-                Picker("Dashboard Layout", selection: $dashboardLayout) {
-                    ForEach(DashboardHeroVariant.selectable) { layout in
-                        Text(layout.displayName).tag(layout)
+                    HStack(spacing: 12) {
+                        ForEach(0..<WaveformStyleView.styleCount, id: \.self) { i in
+                            waveformPreviewCard(style: i)
+                        }
                     }
                 }
-                .pickerStyle(.menu)
-
-                Picker("Sticker Badge", selection: $stickerVariantStore.variant) {
-                    ForEach(StickerLightningBoltVariant.allCases) { sticker in
-                        Text(sticker.displayName).tag(sticker)
-                    }
-                }
-                .pickerStyle(.menu)
+                .padding(.vertical, 4)
             }
+            .onAppear { previewAudioSimulator.start() }
+            .onDisappear { previewAudioSimulator.stop() }
 
             Section("General") {
                 Toggle("Hide Dock Icon", isOn: $menuBarManager.isMenuBarOnly)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
 
                 LaunchAtLogin.Toggle("Launch at Login")
-
-                Toggle("Auto-check Updates", isOn: Binding(
-                    get: { updaterViewModel.automaticallyChecksForUpdates },
-                    set: { updaterViewModel.setAutomaticallyChecksForUpdates($0) }
-                ))
-
-                Toggle("Show Announcements", isOn: $enableAnnouncements)
-                    .onChange(of: enableAnnouncements) { _, newValue in
-                        if newValue {
-                            AnnouncementsService.shared.start()
-                        } else {
-                            AnnouncementsService.shared.stop()
-                        }
-                    }
-
-                HStack {
-                    Button("Check for Updates") {
-                        updaterViewModel.checkForUpdates()
-                    }
-                    .disabled(!updaterViewModel.canCheckForUpdates)
-
-                    Button("Reset Onboarding") {
-                        showResetOnboardingAlert = true
-                    }
-                }
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
             }
 
             Section("English Coach") {
                 EnglishCoachSettingsView()
             }
-
-            Section {
-                AudioCleanupSettingsView()
-            } header: {
-                Text("Privacy")
-            } footer: {
-                Text("Control how Whisper Pro handles your transcription data and audio recordings.")
-            }
-
-            Section {
-                LabeledContent("Export Settings") {
-                    Button("Export") {
-                        ImportExportService.shared.exportSettings(
-                            enhancementService: enhancementService,
-                            recordingShortcutManager: recordingShortcutManager,
-                            menuBarManager: menuBarManager,
-                            mediaController: mediaController,
-                            playbackController: playbackController,
-                            recorderUIManager: recorderUIManager,
-                            modelContext: modelContext
-                        )
-                    }
-                }
-
-                LabeledContent("Import Settings") {
-                    Button("Import") {
-                        ImportExportService.shared.importSettings(
-                            enhancementService: enhancementService,
-                            recordingShortcutManager: recordingShortcutManager,
-                            menuBarManager: menuBarManager,
-                            mediaController: mediaController,
-                            playbackController: playbackController,
-                            recorderUIManager: recorderUIManager,
-                            modelContext: modelContext,
-                            transcriptionModelManager: transcriptionModelManager
-                        )
-                    }
-                }
-            } header: {
-                Text("Backup")
-            } footer: {
-                Text("Export all settings, or choose specific categories when importing a backup.")
-            }
-
-            Section("Diagnostics") {
-                DiagnosticsSettingsView()
-            }
-
-            Section("Help & Resources") {
-                Link("Recommended Models", destination: URL(string: "https://github.com/ZdenekCulik/whisper-pro")!)
-                Link("YouTube Videos & Guides", destination: URL(string: "https://github.com/ZdenekCulik/whisper-pro")!)
-                Link("Documentation", destination: URL(string: "https://github.com/ZdenekCulik/whisper-pro")!)
-                Button("Feedback or Issues?") {
-                    EmailSupport.openSupportEmail()
-                }
-            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
-        .alert("Reset Onboarding", isPresented: $showResetOnboardingAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Reset", role: .destructive) {
-                DispatchQueue.main.async {
-                    hasCompletedOnboardingV2 = false
-                }
-            }
-        } message: {
-            Text("You'll see the introduction screens again the next time you launch the app.")
-        }
     }
 
     private static let defaultCancelRecordingShortcut = Shortcut.key(
@@ -353,6 +217,314 @@ struct SettingsView: View {
         }
         .labelsHidden()
         .fixedSize()
+    }
+
+    // MARK: - Waveform preview
+
+    private func waveformPreviewCard(style: Int) -> some View {
+        let isSelected = waveformStyle == style
+
+        return VStack(spacing: 8) {
+            ZStack {
+                // Same dimmed-desktop stage as the Panel Look cards above, so the two
+                // preview rows read as one consistent system instead of one sitting on
+                // plain black and the other on the gradient.
+                PanelLookPreviewCard.stage
+
+                // Pass the real measured width, not WaveformStyleView's fixed 132pt
+                // default — this is exactly what the live pill's waveformCycler does, and
+                // it's what makes "claude" actually span edge-to-edge here instead of
+                // sitting in a narrow canvas centered inside the card ("bars" still centers
+                // itself within whatever width it's given, so both stay faithful).
+                GeometryReader { geo in
+                    WaveformStyleView(
+                        style: style,
+                        audioMeter: previewAudioSimulator.meter,
+                        isActive: true,
+                        width: geo.size.width
+                    )
+                }
+                .frame(width: 150, height: 28)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 10)
+                // Dark tint stands in for the pill's own near-black chrome, so it still
+                // reads clearly against the lighter stage behind it — glass just adds
+                // the refraction texture on macOS 26+.
+                .glassSurface(cornerRadius: 10, tint: GlassSurface.darkChromeTint) {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black)
+                }
+            }
+            .frame(width: PanelLookPreviewCard.cardWidth, height: PanelLookPreviewCard.cardHeight)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? Color.white : AppTheme.Border.subtle, lineWidth: isSelected ? 2 : 1)
+            )
+
+            Text(WaveformStyleView.styleNames[style].capitalized)
+                .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Color.white : AppTheme.Text.secondary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            waveformStyle = style
+        }
+    }
+
+    // MARK: - Languages
+
+    private static let supportedDictationLanguages: [DictationLanguage] = [
+        DictationLanguage(code: "en", englishName: "English", nativeName: "English"),
+        DictationLanguage(code: "cs", englishName: "Czech", nativeName: "Čeština"),
+        DictationLanguage(code: "sk", englishName: "Slovak", nativeName: "Slovenčina"),
+        DictationLanguage(code: "de", englishName: "German", nativeName: "Deutsch"),
+        DictationLanguage(code: "fr", englishName: "French", nativeName: "Français"),
+        DictationLanguage(code: "es", englishName: "Spanish", nativeName: "Español"),
+        DictationLanguage(code: "it", englishName: "Italian", nativeName: "Italiano"),
+        DictationLanguage(code: "pl", englishName: "Polish", nativeName: "Polski"),
+        DictationLanguage(code: "pt", englishName: "Portuguese", nativeName: "Português"),
+        DictationLanguage(code: "nl", englishName: "Dutch", nativeName: "Nederlands"),
+        DictationLanguage(code: "uk", englishName: "Ukrainian", nativeName: "Українська"),
+        DictationLanguage(code: "ru", englishName: "Russian", nativeName: "Русский")
+    ]
+
+    private var selectedLanguages: [DictationLanguage] {
+        Self.supportedDictationLanguages.filter { preferredLanguageCodes.contains($0.code) }
+    }
+
+    private var remainingLanguages: [DictationLanguage] {
+        Self.supportedDictationLanguages.filter { !preferredLanguageCodes.contains($0.code) }
+    }
+
+    private func selectedLanguageChip(_ language: DictationLanguage) -> some View {
+        let canRemove = preferredLanguageCodes.count > 1
+
+        return HStack(spacing: 6) {
+            Text(language.label)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .foregroundStyle(AppTheme.Text.primary)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    toggleLanguage(language.code)
+                }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(AppTheme.Text.secondary.opacity(canRemove ? 1 : 0.4))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canRemove)
+            .help(canRemove ? "Remove" : "At least one language must stay selected")
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 28)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(AppTheme.Surface.quaternaryFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(AppTheme.Border.subtle, lineWidth: 1)
+        )
+    }
+
+    private var addLanguageMenu: some View {
+        Menu {
+            ForEach(remainingLanguages) { language in
+                Button(language.label) {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        toggleLanguage(language.code)
+                    }
+                }
+            }
+        } label: {
+            Text("Add another")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(AppTheme.Text.secondary)
+                .padding(.horizontal, 10)
+                .frame(height: 28)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .opacity(remainingLanguages.isEmpty ? 0.35 : 1)
+        .disabled(remainingLanguages.isEmpty)
+    }
+
+    private func toggleLanguage(_ code: String) {
+        var codes = preferredLanguageCodes
+        if codes.contains(code) {
+            codes.remove(code)
+        } else {
+            codes.insert(code)
+        }
+
+        // Never allow an empty selection.
+        guard !codes.isEmpty else { return }
+
+        preferredLanguageCodes = codes
+        UserDefaults.standard.preferredLanguageHints = Array(codes)
+    }
+}
+
+/// One selectable preview card for the "Panel Look" setting. Renders the REAL
+/// `Variant2View` / `Variant16View` (same code path the floating panel uses) — not a
+/// hand-drawn stand-in. Each variant is laid out at its own known, fixed natural size
+/// (`classicNaturalSize` / `minimalNaturalSize`) and shrunk with a constant
+/// `scaleEffect`; there's no runtime GeometryReader measurement (these views report the
+/// proposed size, not an intrinsic one, so there's nothing reliable to measure), and the
+/// short static demo text in `previewContext` never re-flows, so the natural size never
+/// changes either. A bundled macOS wallpaper stands in for the desktop behind the panel,
+/// the same trick System Settings' own Appearance thumbnails use. Tapping selects it;
+/// the selected card gets an accent border.
+private struct PanelLookPreviewCard: View {
+    let variant: WidgetVariant
+    let isSelected: Bool
+    let audioMeter: AudioMeter
+    let action: () -> Void
+
+    // fileprivate (not private): reused by SettingsView.waveformPreviewCard so the
+    // Waveform demo cards sit on the exact same stage as these Panel Look cards.
+    fileprivate static let cardWidth: CGFloat = 210
+    fileprivate static let cardHeight: CGFloat = 110
+
+    // Single constant scale applied to both variants so their real relative
+    // proportions to each other (Classic 384pt vs Minimal's fixed 420pt) carry over
+    // into the miniature instead of both being force-fit to the same width.
+    private static let previewScale: CGFloat = 0.42
+    // Variant2View's own default expanded width (see Variant2View.defaultWidth) and a
+    // fixed height comfortably taller than the 2-line demo text + waveform row + its
+    // own bottom padding (~128pt), so nothing clips inside this container before the
+    // scaleEffect below.
+    private static let classicNaturalSize = CGSize(width: 384, height: 150)
+    // Variant16View's capsule is a fixed, non-resizable width (Variant16View.maxTextWidth);
+    // height covers the capsule plus its own bottom padding.
+    private static let minimalNaturalSize = CGSize(width: 420, height: 80)
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                ZStack {
+                    Self.stage
+                    mockup
+                }
+                .frame(width: Self.cardWidth, height: Self.cardHeight)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(isSelected ? Color.white : AppTheme.Border.subtle, lineWidth: isSelected ? 2 : 1)
+                )
+
+                Text(variant.displayName)
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Color.white : AppTheme.Text.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // A real bundled macOS wallpaper stands in for the desktop behind the floating
+    // panel. fileprivate so the Waveform demo cards can share it.
+    fileprivate static var stage: some View {
+        Image("PanelPreviewWallpaper")
+            .resizable()
+            .scaledToFill()
+            .clipped()
+    }
+
+    @ViewBuilder
+    private var mockup: some View {
+        switch variant {
+        case .v2:  classicMockup
+        case .v16: minimalMockup
+        }
+    }
+
+    // Short, static demo content shared by both variants — it never changes, so the
+    // fixed natural-size containers above always render at the same size.
+    private var previewContext: WidgetVariantContext {
+        WidgetVariantContext(
+            committed: "Testing this out",
+            partial: "",
+            audioMeter: audioMeter,
+            recordingState: .recording
+        )
+    }
+
+    // Classic (V2): the REAL Variant2View, laid out at its own natural expanded size
+    // and shrunk to card scale.
+    private var classicMockup: some View {
+        Variant2View(context: previewContext)
+            .frame(width: Self.classicNaturalSize.width, height: Self.classicNaturalSize.height)
+            .scaleEffect(Self.previewScale)
+            .frame(
+                width: Self.classicNaturalSize.width * Self.previewScale,
+                height: Self.classicNaturalSize.height * Self.previewScale
+            )
+            .allowsHitTesting(false)
+            .clipped()
+    }
+
+    // Minimal (V16): the REAL Variant16View, same treatment.
+    private var minimalMockup: some View {
+        Variant16View(context: previewContext)
+            .frame(width: Self.minimalNaturalSize.width, height: Self.minimalNaturalSize.height)
+            .scaleEffect(Self.previewScale)
+            .frame(
+                width: Self.minimalNaturalSize.width * Self.previewScale,
+                height: Self.minimalNaturalSize.height * Self.previewScale
+            )
+            .allowsHitTesting(false)
+            .clipped()
+    }
+}
+
+/// Drives Settings' preview cards (Panel Look + Waveform) with a fake but natural-looking
+/// "someone is speaking" audio envelope, so those previews animate continuously instead
+/// of sitting on a static level or (worse) static swapped-in text.
+@MainActor
+private final class FakeSpeechAudioSimulator: ObservableObject {
+    @Published private(set) var meter = AudioMeter(averagePower: 0, peakPower: 0)
+
+    private var timer: Timer?
+    private let startedAt = Date()
+
+    func start() {
+        guard timer == nil else { return }
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 20.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tick() }
+        }
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private func tick() {
+        let t = Date().timeIntervalSince(startedAt)
+        // Layer a slow phrase-level rise/fall with a faster syllable-level wobble so
+        // the level reads as speech (bursts of louder words, brief dips) rather than a
+        // steady tone or a single sine wave.
+        let phrase = sin(t * 0.6) * 0.5 + 0.5
+        let syllable = sin(t * 5.2) * 0.5 + 0.5
+        let envelope = max(0, phrase * 0.7 + syllable * 0.3 - 0.15)
+        meter = AudioMeter(averagePower: min(1, envelope * 0.75), peakPower: min(1, envelope))
+    }
+}
+
+private struct DictationLanguage: Identifiable {
+    let code: String
+    let englishName: String
+    let nativeName: String
+
+    var id: String { code }
+
+    var label: String {
+        englishName == nativeName ? englishName : "\(englishName) (\(nativeName))"
     }
 }
 

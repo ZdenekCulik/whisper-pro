@@ -180,7 +180,7 @@ extension InsightsData {
             .month: series(count: 30, step: .day, pattern: dayPattern),
             .sixMonths: series(count: 26, step: .weekOfYear, pattern: weekPattern),
             .year: series(count: 12, step: .month, pattern: monthPattern),
-            .total: series(count: 18, step: .month, pattern: monthPattern)
+            .total: series(count: 240, step: .day, pattern: dayPattern)
         ]
 
         // Typed series — lower, distinct pattern so the gray line reads as a
@@ -201,7 +201,7 @@ extension InsightsData {
             .month: typedSeries(count: 30, step: .day, pattern: typedDayPattern),
             .sixMonths: typedSeries(count: 26, step: .weekOfYear, pattern: typedWeekPattern),
             .year: typedSeries(count: 12, step: .month, pattern: typedMonthPattern),
-            .total: typedSeries(count: 18, step: .month, pattern: typedMonthPattern)
+            .total: typedSeries(count: 240, step: .day, pattern: typedDayPattern)
         ]
 
         return InsightsData(

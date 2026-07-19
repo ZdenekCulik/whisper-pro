@@ -12,7 +12,14 @@ struct EnglishCoachSettingsView: View {
     ]
 
     var body: some View {
-        Toggle("English Coach", isOn: $enabled)
+        Toggle(isOn: $enabled) {
+            HStack(spacing: 4) {
+                Text("English Coach")
+                InfoTip("After each English dictation, Whisper Pro points out one phrase you could say more naturally — so you pick up the language as you work.")
+            }
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
 
         if enabled {
             Picker("My native language", selection: $nativeLanguage) {
@@ -21,10 +28,6 @@ struct EnglishCoachSettingsView: View {
                 }
             }
             .pickerStyle(.menu)
-
-            Text("After each English dictation, Whisper Pro points out one phrase you could say more naturally — so you pick up the language as you work.")
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
         }
     }
 }

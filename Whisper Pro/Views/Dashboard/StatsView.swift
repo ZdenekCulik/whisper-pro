@@ -9,6 +9,30 @@ private struct StatsSummary: Equatable, Sendable {
     var totalDuration: TimeInterval = 0
 }
 
+/// Caches the last loaded summary across StatsView re-mounts (tab switches
+/// destroy and recreate the view, which would otherwise reset totals to 0/"–"
+/// and flash the loading placeholders every time — mirrors `DashboardStatsCache`.
+private final class StatsSummaryCache: @unchecked Sendable {
+    static let shared = StatsSummaryCache()
+
+    private let lock = NSLock()
+    private var summary: StatsSummary?
+
+    private init() {}
+
+    func currentSummary() -> StatsSummary? {
+        lock.lock()
+        defer { lock.unlock() }
+        return summary
+    }
+
+    func update(_ summary: StatsSummary) {
+        lock.lock()
+        self.summary = summary
+        lock.unlock()
+    }
+}
+
 private enum StatsSummaryLoader {
     static func load(from modelContainer: ModelContainer) async throws -> StatsSummary {
         let task = Task.detached(priority: .utility) {
@@ -70,10 +94,22 @@ struct StatsView: View {
     @State private var totalDuration: TimeInterval = 0
     @State private var hasLoadedStatsSnapshot = false
     @State private var insightsData: InsightsData?
+    @State private var hasLoadedInsightsSnapshot = false
     @State private var summaryTask: Task<Void, Never>?
     @State private var insightsTask: Task<Void, Never>?
 
     private var accent: Color { theme.resolvedAccent ?? .accentColor }
+
+    init() {
+        let cachedSummary = StatsSummaryCache.shared.currentSummary()
+        _totalCount = State(initialValue: cachedSummary?.totalCount ?? 0)
+        _totalWords = State(initialValue: cachedSummary?.totalWords ?? 0)
+        _totalDuration = State(initialValue: cachedSummary?.totalDuration ?? 0)
+        _hasLoadedStatsSnapshot = State(initialValue: cachedSummary != nil)
+        let cachedInsights = InsightsDataCache.shared.current()
+        _insightsData = State(initialValue: cachedInsights)
+        _hasLoadedInsightsSnapshot = State(initialValue: cachedInsights != nil)
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -90,7 +126,7 @@ struct StatsView: View {
 
                     if let insightsData {
                         analyticsGrid(data: insightsData)
-                    } else if hasLoadedStatsSnapshot {
+                    } else if hasLoadedInsightsSnapshot {
                         emptyAnalyticsCard
                     }
 
@@ -130,44 +166,26 @@ struct StatsView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Stats")
-                    .font(.system(size: 25, weight: .bold))
-                    .tracking(-0.35)
-                    .foregroundColor(theme.resolvedPrimaryText)
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Stats")
+                .font(.system(size: 25, weight: .bold))
+                .tracking(-0.35)
+                .foregroundColor(theme.resolvedPrimaryText)
 
-                Text("Detailed insights from your dictation history.")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(theme.resolvedSecondaryText)
-            }
-
-            Spacer()
-
-            Text("All time")
-                .font(.system(size: 11.5, weight: .medium))
+            Text("Detailed insights from your dictation history.")
+                .font(.system(size: 13, weight: .medium))
                 .foregroundColor(theme.resolvedSecondaryText)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(theme.resolvedSecondaryText.opacity(0.08)))
         }
     }
 
     private func analyticsGrid(data: InsightsData) -> some View {
         VStack(spacing: 10) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 10) {
-                    StatsActivityCard(data: data, accent: accent)
-                        .frame(maxWidth: .infinity)
+            HStack(alignment: .top, spacing: 10) {
+                StatsActivityCard(data: data, accent: accent)
+                    .frame(maxWidth: .infinity)
 
-                    StatsTimeOfDayCard(data: data, accent: accent)
-                        .frame(width: 224)
-                }
-
-                VStack(spacing: 10) {
-                    StatsActivityCard(data: data, accent: accent)
-                    StatsTimeOfDayCard(data: data, accent: accent)
-                }
+                StatsTimeOfDayCard(data: data, accent: accent)
+                    .frame(maxWidth: .infinity)
             }
 
             HStack(alignment: .top, spacing: 10) {
@@ -176,24 +194,6 @@ struct StatsView: View {
 
                 StatsWordsTrendCard(data: data, accent: accent)
                     .frame(maxWidth: .infinity)
-            }
-
-            HStack(spacing: 10) {
-                StatsMiniTrendCard(
-                    title: "Enhanced sessions",
-                    subtitle: "AI improvement applied",
-                    value: "\(data.enhancedSessions)",
-                    points: data.enhancedTrend,
-                    accent: accent
-                )
-
-                StatsMiniTrendCard(
-                    title: "Dictionary entries",
-                    subtitle: "Custom words and rules",
-                    value: "\(data.dictionaryWords + data.dictionaryReplacements)",
-                    points: data.wordsTrend,
-                    accent: accent
-                )
             }
         }
     }
@@ -242,6 +242,7 @@ struct StatsView: View {
                 totalWords = summary.totalWords
                 totalDuration = summary.totalDuration
                 hasLoadedStatsSnapshot = true
+                StatsSummaryCache.shared.update(summary)
             }
         } catch is CancellationError {
         } catch {
@@ -253,7 +254,13 @@ struct StatsView: View {
         do {
             let data = try await InsightsLoader.load(from: modelContext.container)
             guard !Task.isCancelled else { return }
-            await MainActor.run { insightsData = data }
+            await MainActor.run {
+                insightsData = data
+                hasLoadedInsightsSnapshot = true
+                if let data {
+                    InsightsDataCache.shared.update(data)
+                }
+            }
         } catch is CancellationError {
         } catch {
             logger.error("Error loading stats insights: \(error, privacy: .public)")
@@ -340,20 +347,20 @@ private struct StatsMetricGrid: View {
 
     var body: some View {
         LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5),
+            columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
             spacing: 8
         ) {
             metric("text.bubble.fill", stats.words, "Words dictated", "All time", AppTheme.Sidebar.modes)
             metric("speedometer", stats.wordsPerMinute, "Avg. speed", "Based on audio time", AppTheme.Status.infoStrong)
             metric("mic.fill", stats.sessions, "Dictations", "Completed", AppTheme.Status.positive)
-            metric("sparkles", "\(insightsData?.enhancedSessions ?? 0)", "Enhanced sessions", "AI improved", AppTheme.Sidebar.modes)
-            metric("text.book.closed.fill", "\(dictionaryEntries)", "Dictionary entries", "Words + rules", AppTheme.Sidebar.dictionary)
+            metric(
+                "flame.fill",
+                insightsData.map { "\($0.currentStreak)" } ?? "–",
+                "Day streak",
+                "Consecutive days",
+                AppTheme.Status.warningStrong
+            )
         }
-    }
-
-    private var dictionaryEntries: Int {
-        guard let insightsData else { return 0 }
-        return insightsData.dictionaryWords + insightsData.dictionaryReplacements
     }
 
     private func metric(
@@ -417,57 +424,20 @@ private struct StatsActivityCard: View {
     var body: some View {
         StatsAnalyticsCard {
             VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    StatsSectionTitle(title: "Activity", subtitle: "Last 17 weeks")
-                    Spacer()
-                    ContributionLegend(accent: accent)
-                }
+                StatsSectionTitle(title: "Activity", subtitle: "Last 17 weeks")
 
-                HStack(alignment: .center, spacing: 10) {
-                    ContributionGraphView(days: data.days, accent: accent, animate: true, showMonths: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    StatsDayStreakSticker(
-                        current: data.currentStreak,
-                        longest: data.longestStreak
-                    )
-                    .frame(width: 74)
-                }
+                ContributionGraphView(
+                    days: data.days,
+                    accent: accent,
+                    animate: true,
+                    showMonths: true,
+                    cellSize: 13,
+                    cellSpacing: 3
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .frame(minHeight: 176)
-    }
-}
-
-private struct StatsDayStreakSticker: View {
-    let current: Int
-    let longest: Int
-
-    @EnvironmentObject private var theme: ThemeManager
-
-    var body: some View {
-        VStack(spacing: 4) {
-            StickerAchievementBadge()
-                .frame(width: 40, height: 50)
-
-            Text("\(current)")
-                .font(.system(size: 20, weight: .bold))
-                .tracking(-0.3)
-                .foregroundColor(theme.resolvedPrimaryText)
-                .lineLimit(1)
-
-            Text("Day streak".uppercased())
-                .font(.system(size: 8.8, weight: .semibold))
-                .tracking(0.55)
-                .foregroundColor(theme.resolvedSecondaryText)
-                .lineLimit(1)
-
-            Text("Best \(longest)")
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundColor(theme.resolvedSecondaryText)
-                .lineLimit(1)
-        }
-        .padding(.vertical, 2)
     }
 }
 
@@ -631,53 +601,6 @@ private struct StatsWordsTrendCard: View {
     }
 }
 
-private struct StatsMiniTrendCard: View {
-    let title: String
-    let subtitle: String
-    let value: String
-    let points: [InsightsData.TrendPoint]
-    let accent: Color
-
-    @EnvironmentObject private var theme: ThemeManager
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(title)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundColor(theme.resolvedPrimaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-
-                Spacer(minLength: 8)
-
-                Text(value)
-                    .font(.system(size: 17, weight: .bold))
-                    .tracking(-0.2)
-                    .foregroundColor(theme.resolvedPrimaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-
-            HStack(alignment: .center, spacing: 12) {
-                Text(subtitle)
-                    .font(.system(size: 10.8, weight: .medium))
-                    .foregroundColor(theme.resolvedSecondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-
-                Spacer(minLength: 8)
-
-                Sparkline(points: points, accent: accent, height: 26)
-                    .frame(width: 80)
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 66)
-        .background(StatsCardBackground(cornerRadius: 10))
-    }
-}
-
 private struct StatsAnalyticsCard<Content: View>: View {
     @ViewBuilder var content: () -> Content
 
@@ -715,11 +638,10 @@ private struct StatsCardBackground: View {
     @EnvironmentObject private var theme: ThemeManager
 
     var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(theme.resolvedSecondaryText.opacity(0.06))
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        shape.fill(theme.resolvedSecondaryText.opacity(0.06))
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(theme.resolvedBorder.opacity(0.32), lineWidth: 0.8)
+                shape.strokeBorder(theme.resolvedBorder.opacity(0.32), lineWidth: 0.8)
             )
     }
 }

@@ -106,6 +106,7 @@ private struct EnhancementModelSettingsView: View {
                     }
                 }
                 .toggleStyle(.switch)
+                .controlSize(.small)
             } header: {
                 Text("Enhancement Settings")
             }
@@ -150,6 +151,7 @@ private struct AdvancedModelSettingsSection: View {
                 }
             }
             .toggleStyle(.switch)
+            .controlSize(.small)
 
             Toggle(isOn: $isVADEnabled) {
                 HStack(spacing: 4) {
@@ -158,6 +160,7 @@ private struct AdvancedModelSettingsSection: View {
                 }
             }
             .toggleStyle(.switch)
+            .controlSize(.small)
 
             Toggle(isOn: $prewarmModelOnWake) {
                 HStack(spacing: 4) {
@@ -166,6 +169,7 @@ private struct AdvancedModelSettingsSection: View {
                 }
             }
             .toggleStyle(.switch)
+            .controlSize(.small)
         } header: {
             Text("Advanced")
         }

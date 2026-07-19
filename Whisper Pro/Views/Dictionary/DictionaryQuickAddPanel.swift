@@ -177,7 +177,9 @@ struct DictionaryQuickAddView: View {
             hintBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
+        .glassSurface(in: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
+            VisualEffectView(material: .popover, blendingMode: .behindWindow)
+        }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)

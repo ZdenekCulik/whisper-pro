@@ -9,12 +9,15 @@ struct ContributionGraphView: View {
     var animate: Bool = true
     /// GitHub-style month labels along the top edge.
     var showMonths: Bool = false
+    /// Size of each day cell; larger callers (e.g. the Stats activity card) can bump this up.
+    var cellSize: CGFloat = 13
+    var cellSpacing: CGFloat = 3
 
     @EnvironmentObject var theme: ThemeManager
     @State private var appeared = false
 
-    private let cell: CGFloat = 13
-    private let spacing: CGFloat = 3
+    private var cell: CGFloat { cellSize }
+    private var spacing: CGFloat { cellSpacing }
     private let weekdayColumnWidth: CGFloat = 28
     private let weekdayLabels = ["", "Mon", "", "Wed", "", "Fri", ""]
 

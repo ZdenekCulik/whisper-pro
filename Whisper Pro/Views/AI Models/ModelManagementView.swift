@@ -219,9 +219,12 @@ struct ModelManagementView: View {
                         .foregroundColor(selectedFilter == filter ? .primary : .primary.opacity(0.7))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(
+                        .glassSurface(
+                            in: RoundedRectangle(cornerRadius: 22, style: .continuous),
+                            tint: selectedFilter == filter ? GlassSurface.settingsAccentChipTint : nil
+                        ) {
                             AppMaterialCardBackground(isSelected: selectedFilter == filter, cornerRadius: 22)
-                        )
+                        }
                 }
                 .buttonStyle(PlainButtonStyle())
             }

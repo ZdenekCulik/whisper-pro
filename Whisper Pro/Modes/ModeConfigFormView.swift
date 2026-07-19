@@ -202,6 +202,8 @@ struct ModeConfigFormView: View {
                             InfoTip("Apply intelligent text formatting to break large block of text into paragraphs.")
                         }
                     }
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
 
                     Picker(selection: $draft.punctuationCleanupMode) {
                         ForEach(PunctuationCleanupMode.allCases) { mode in
@@ -221,6 +223,8 @@ struct ModeConfigFormView: View {
                             InfoTip("Convert transcription output to lowercase.")
                         }
                     }
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
                 }
             }
         }
@@ -231,6 +235,8 @@ struct ModeConfigFormView: View {
         if let model = selectedTranscriptionModel,
            TranscriptionRealtimeSupport.isAvailable(for: model) {
             Toggle("Real-time", isOn: $draft.isRealtimeTranscriptionEnabled)
+                .toggleStyle(.switch)
+                .controlSize(.small)
                 .disabled(TranscriptionRealtimeSupport.isRequired(for: model))
                 .onAppear {
                     if TranscriptionRealtimeSupport.isRequired(for: model) {
@@ -308,6 +314,8 @@ struct ModeConfigFormView: View {
     private var aiEnhancementSection: some View {
         Section("AI Enhancement") {
             Toggle("AI Enhancement", isOn: $draft.isAIEnhancementEnabled)
+                .toggleStyle(.switch)
+                .controlSize(.small)
                 .onChange(of: draft.isAIEnhancementEnabled) { _, newValue in
                     if newValue {
                         if configuredSelectedAIProvider == nil {
@@ -497,6 +505,8 @@ struct ModeConfigFormView: View {
                     InfoTip("Use selected text from the active app as context for this mode.")
                 }
             }
+            .toggleStyle(.switch)
+            .controlSize(.small)
 
             Toggle(isOn: $draft.useClipboardContext) {
                 HStack(spacing: 4) {
@@ -504,6 +514,8 @@ struct ModeConfigFormView: View {
                     InfoTip("Use clipboard text as context for this mode.")
                 }
             }
+            .toggleStyle(.switch)
+            .controlSize(.small)
 
             Toggle(isOn: $draft.useScreenCapture) {
                 HStack(spacing: 4) {
@@ -511,6 +523,8 @@ struct ModeConfigFormView: View {
                     InfoTip("Use captured on-screen text as context for this mode.")
                 }
             }
+            .toggleStyle(.switch)
+            .controlSize(.small)
         }
     }
 
@@ -547,6 +561,8 @@ struct ModeConfigFormView: View {
                         InfoTip("Default mode is used when no specific app or website matches are found.")
                     }
                 }
+                .toggleStyle(.switch)
+                .controlSize(.small)
 
                 Picker(selection: $draft.autoSendKey) {
                     ForEach(AutoSendKey.allCases, id: \.self) { key in

@@ -13,6 +13,7 @@ struct VocabularyView: View {
     @State private var showAlert = false
     @State private var alertMessage = ""
     @State private var sortMode: VocabularySortMode = .wordAsc
+    @State private var suggestions: [VocabularySuggestionService.Suggestion] = []
 
     init() {
         if let savedSort = UserDefaults.standard.string(forKey: "vocabularySortMode"),
@@ -58,6 +59,26 @@ struct VocabularyView: View {
             }
             .animation(.easeInOut(duration: 0.2), value: shouldShowAddButton)
 
+            if !suggestions.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(String(localized: "Suggested"))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+
+                    FlowLayout(spacing: 8) {
+                        ForEach(suggestions) { suggestion in
+                            VocabularySuggestionChipView(
+                                word: suggestion.word,
+                                onAdd: { addSuggestion(suggestion) },
+                                onDismiss: { dismissSuggestion(suggestion) }
+                            )
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .padding(.top, 4)
+            }
+
             if !vocabularyWords.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     Button(action: toggleSort) {
@@ -92,8 +113,25 @@ struct VocabularyView: View {
         } message: {
             Text(alertMessage)
         }
+        .task {
+            suggestions = VocabularySuggestionService.suggestions(context: modelContext, existing: Array(vocabularyWords))
+        }
     }
-    
+
+    private func addSuggestion(_ suggestion: VocabularySuggestionService.Suggestion) {
+        if let error = DictionaryService.addVocabularyWords(suggestion.word, existing: Array(vocabularyWords), context: modelContext) {
+            alertMessage = error
+            showAlert = true
+            return
+        }
+        suggestions.removeAll { $0.id == suggestion.id }
+    }
+
+    private func dismissSuggestion(_ suggestion: VocabularySuggestionService.Suggestion) {
+        VocabularySuggestionService.dismiss(suggestion.word)
+        suggestions.removeAll { $0.id == suggestion.id }
+    }
+
     private func addWords() {
         let input = newWord.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty else { return }
@@ -157,4 +195,52 @@ struct VocabularyWordView: View {
         }
         .shadow(color: Color.black.opacity(0.05), radius: 2, y: 1)
     }
-} 
+}
+
+struct VocabularySuggestionChipView: View {
+    let word: String
+    let onAdd: () -> Void
+    let onDismiss: () -> Void
+    @State private var isDismissHovered = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(word)
+                .font(.system(size: 13))
+                .lineLimit(1)
+                .foregroundColor(.secondary)
+
+            Button(action: onAdd) {
+                Image(systemName: "plus.circle.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.borderless)
+            .help("Add to vocabulary")
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark.circle.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(isDismissHovered ? AppTheme.Status.error : .secondary)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.borderless)
+            .help("Dismiss suggestion")
+            .onHover { hover in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isDismissHovered = hover
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(AppTheme.Surface.subtle)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(AppTheme.Border.subtle, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        }
+    }
+}

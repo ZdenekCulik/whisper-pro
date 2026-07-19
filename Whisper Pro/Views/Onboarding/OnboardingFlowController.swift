@@ -23,16 +23,33 @@ final class OnboardingFlowController {
         coordinator.storedStage = OnboardingStage.model.rawValue
     }
 
-    func goToAPIStep(
+    /// Continues out of the Soniox setup (`.model`) stage straight into the experience steps.
+    /// There is no separate LLM/AI-enhancement provider stage in onboarding anymore, so this
+    /// always marks the (legacy) API-provider setup as skipped, which keeps
+    /// `activeExperienceSteps` correctly filtered to steps that don't require a verified AI provider.
+    func continueFromModelStep(
         isTranscriptionModelDownloaded: Bool,
-        aiService: AIService
+        enhancementService: AIEnhancementService
     ) {
         guard coordinator.requiredPermissionsGranted,
-              coordinator.hasSelectedOnboardingMicrophone,
-              isTranscriptionModelDownloaded else { return }
-        ensureDefaultOnboardingProvider()
-        selectOnboardingProvider(coordinator.selectedOnboardingProvider, aiService: aiService)
-        coordinator.storedStage = OnboardingStage.api.rawValue
+              coordinator.hasSelectedOnboardingMicrophone else { return }
+        coordinator.hasSkippedAPISetup = true
+        coordinator.isSelectedAPIProviderVerified = false
+        goToExperienceStep(
+            isTranscriptionModelDownloaded: isTranscriptionModelDownloaded,
+            enhancementService: enhancementService
+        )
+    }
+
+    func skipSonioxSetupAndContinue(
+        isTranscriptionModelDownloaded: Bool,
+        enhancementService: AIEnhancementService
+    ) {
+        coordinator.hasSkippedSonioxSetup = true
+        continueFromModelStep(
+            isTranscriptionModelDownloaded: isTranscriptionModelDownloaded,
+            enhancementService: enhancementService
+        )
     }
 
     func goBackToModelStep() {
@@ -125,7 +142,7 @@ final class OnboardingFlowController {
                 enhancementService: enhancementService
             )
         } else {
-            coordinator.storedStage = OnboardingStage.api.rawValue
+            coordinator.storedStage = OnboardingStage.model.rawValue
         }
     }
 
@@ -152,7 +169,7 @@ final class OnboardingFlowController {
         enhancementService: AIEnhancementService
     ) {
         guard coordinator.isReadyForExperience(isTranscriptionModelDownloaded: isTranscriptionModelDownloaded) else {
-            coordinator.storedStage = OnboardingStage.api.rawValue
+            coordinator.storedStage = OnboardingStage.model.rawValue
             return
         }
 
@@ -167,7 +184,7 @@ final class OnboardingFlowController {
 
     func goToPreviousLicenseStep(isTranscriptionModelDownloaded: Bool) {
         guard coordinator.isReadyForExperience(isTranscriptionModelDownloaded: isTranscriptionModelDownloaded) else {
-            coordinator.storedStage = OnboardingStage.api.rawValue
+            coordinator.storedStage = OnboardingStage.model.rawValue
             return
         }
 
@@ -224,10 +241,10 @@ final class OnboardingFlowController {
             goToFirstIncompleteSetupStep(isTranscriptionModelDownloaded: isTranscriptionModelDownloaded)
         }
 
-        if coordinator.stage == .api &&
-            (!coordinator.requiredPermissionsGranted ||
-             !coordinator.hasSelectedOnboardingMicrophone ||
-             !isTranscriptionModelDownloaded) {
+        // `.api` (the old LLM/AI-enhancement provider setup stage) is no longer a navigable
+        // destination. This is a safety net for a leftover/legacy persisted `.api` stage from a
+        // previous build so it can't strand the user on dead UI.
+        if coordinator.stage == .api {
             goToFirstIncompleteSetupStep(isTranscriptionModelDownloaded: isTranscriptionModelDownloaded)
         }
 
@@ -256,10 +273,8 @@ final class OnboardingFlowController {
             coordinator.storedStage = OnboardingStage.permissions.rawValue
         } else if !coordinator.hasSelectedOnboardingMicrophone {
             coordinator.storedStage = OnboardingStage.microphone.rawValue
-        } else if !isTranscriptionModelDownloaded {
-            coordinator.storedStage = OnboardingStage.model.rawValue
         } else {
-            coordinator.storedStage = OnboardingStage.api.rawValue
+            coordinator.storedStage = OnboardingStage.model.rawValue
         }
     }
 
@@ -302,7 +317,11 @@ final class OnboardingFlowController {
         isTranscriptionModelDownloaded: Bool,
         onComplete: () -> Void
     ) {
+        // `.trust` is the final visible onboarding step now that `.license` is out of the
+        // navigable sequence, so it's always allowed to finish from there — same treatment
+        // `.license` used to get, kept as an extra safety net alongside isCurrentExperienceReady.
         guard coordinator.stage == .license ||
+                coordinator.stage == .trust ||
                 coordinator.isCurrentExperienceReady(isTranscriptionModelDownloaded: isTranscriptionModelDownloaded) else {
             return
         }

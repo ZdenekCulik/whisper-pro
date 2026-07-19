@@ -48,6 +48,8 @@ class TranscriptionPipeline {
     ///   - shouldCancel: Returns true if the user requested cancellation.
     ///   - onCancel: Called when cancellation is detected to cancel active session state.
     ///   - onDismiss: Called when delivery should close the recorder panel.
+    ///   - onPasteHint: Called instead of onDismiss when the transcript couldn't be
+    ///     auto-pasted, so the panel can show a "⌘V to paste" hint before closing.
     func run(
         transcription: Transcription,
         audioURL: URL,
@@ -61,6 +63,7 @@ class TranscriptionPipeline {
         shouldCancel: () -> Bool,
         onCancel: @escaping () async -> Void,
         onDismiss: @escaping () async -> Void,
+        onPasteHint: @escaping () async -> Void = {},
         assistant: AssistantHooks = .inactive
     ) async {
         let model = transcriptionConfiguration.model
@@ -264,6 +267,7 @@ class TranscriptionPipeline {
             actions: TranscriptionDelivery.Actions(
                 setState: onStateChange,
                 dismiss: onDismiss,
+                showPasteHint: onPasteHint,
                 sendFollowUp: assistant.sendFollowUp,
                 showResponse: assistant.showResponse,
                 failResponse: assistant.failResponse

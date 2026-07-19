@@ -43,6 +43,7 @@ struct WhisperProApp: App {
 
         AppDefaults.registerDefaults()
         OnboardingV2Migration.prepareIfNeeded()
+        WaveformStyleMigration.prepareIfNeeded()
 
         let logger = Logger(subsystem: "com.prakashjoshipax.whisperpro", category: "Initialization")
         // Keep existing model order stable; append new models after synced entities.
@@ -137,6 +138,10 @@ struct WhisperProApp: App {
         whisperModelManager.createModelsDirectoryIfNeeded()
         whisperModelManager.loadAvailableModels()
         transcriptionModelManager.refreshAllAvailableModels()
+        // ModeManager.shared must be touched before loadCurrentTranscriptionModel(): its init
+        // runs a one-time migration that copies any mode-pinned transcription model into
+        // "CurrentTranscriptionModel" so the global AI Models selection becomes authoritative.
+        _ = ModeManager.shared
         transcriptionModelManager.loadCurrentTranscriptionModel()
 
         _whisperModelManager = StateObject(wrappedValue: whisperModelManager)
@@ -334,15 +339,6 @@ struct WhisperProApp: App {
                             if !UserDefaults.standard.bool(forKey: "IsTranscriptionCleanupEnabled") {
                                 audioCleanupManager.startAutomaticCleanup(modelContext: container.mainContext)
                             }
-
-                            // Process any pending open-file request now that the main ContentView is ready.
-                            if let pendingURL = appDelegate.pendingOpenFileURL {
-                                NotificationCenter.default.post(name: .navigateToDestination, object: nil, userInfo: ["destination": "Transcribe Audio"])
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                    NotificationCenter.default.post(name: .openFileForTranscription, object: nil, userInfo: ["url": pendingURL])
-                                }
-                                appDelegate.pendingOpenFileURL = nil
-                            }
                         }
                         .background(WindowAccessor { window in
                             WindowManager.shared.configureWindow(window)
@@ -359,6 +355,7 @@ struct WhisperProApp: App {
                         .environmentObject(fluidAudioModelManager)
                         .environmentObject(aiService)
                         .environmentObject(enhancementService)
+                        .environmentObject(transcriptionModelManager)
                         .frame(width: 950)
                         .frame(minHeight: 730)
                         .background(WindowAccessor { window in

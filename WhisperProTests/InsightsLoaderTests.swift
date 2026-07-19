@@ -76,6 +76,16 @@ struct InsightsLoaderTests {
 
         // Day grid ends today with the summed word count (100 + 50 + 999 self).
         #expect(data.days.last?.count == 1149)
+
+        // All-time words stay daily, beginning on the first tracked day and
+        // preserving empty calendar days between it and today.
+        let allTime = try #require(data.wordsByRange[.total])
+        #expect(allTime.count == 6)
+        #expect(calendar.isDate(allTime[0].date, inSameDayAs: day(5)))
+        #expect(allTime[0].value == 30)
+        #expect(allTime[2].value == 0)
+        #expect(calendar.isDate(allTime[5].date, inSameDayAs: day(0)))
+        #expect(allTime[5].value == 1149)
     }
 
     @Test func returnsNilWhenEmpty() async throws {

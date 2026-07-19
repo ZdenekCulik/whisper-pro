@@ -17,6 +17,10 @@ final class TranscriptionDelivery {
     struct Actions {
         let setState: (RecordingState) -> Void
         let dismiss: () async -> Void
+        // Called instead of `dismiss` when the transcript went to the clipboard
+        // because no editable field was focused — shows a brief in-panel hint
+        // before dismissing rather than a toast that overlaps the panel.
+        let showPasteHint: () async -> Void
         let sendFollowUp: (String, Transcription) async -> Void
         let showResponse: (String, String?) async -> Void
         let failResponse: (String) async -> Void
@@ -152,6 +156,15 @@ final class TranscriptionDelivery {
         let appendSpace = UserDefaults.standard.bool(forKey: "AppendTrailingSpace")
         let pastedText = textToPaste + (appendSpace ? " " : "")
         SoundManager.shared.playStopSound()
+
+        // Check editability up front (not just inside CursorPaster) so we know
+        // whether to dismiss now or leave the panel up to show the paste hint.
+        guard CursorPaster.focusedElementLikelyEditable() else {
+            _ = ClipboardManager.setClipboard(pastedText, transient: false, sessionID: nil)
+            await actions.showPasteHint()
+            return
+        }
+
         await actions.dismiss()
 
         let pasteTask = CursorPaster.startPasteAtCursor(pastedText)

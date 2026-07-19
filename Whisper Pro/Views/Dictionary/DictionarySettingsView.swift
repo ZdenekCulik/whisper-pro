@@ -170,9 +170,12 @@ private struct DictionarySectionButtonLabel: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-        .background(
+        .glassSurface(
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous),
+            tint: isSelected ? GlassSurface.settingsAccentChipTint : nil
+        ) {
             AppCardBackground(isSelected: isSelected, cornerRadius: 22)
-        )
+        }
         .contentShape(Rectangle())
     }
 }

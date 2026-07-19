@@ -38,7 +38,7 @@ enum OnboardingStage: String, CaseIterable {
         case .microphone:
             return "mic"
         case .model:
-            return "arrow.down"
+            return "cloud"
         case .api:
             return "checkmark.seal"
         case .experience:
@@ -59,7 +59,7 @@ enum OnboardingStage: String, CaseIterable {
         case .microphone:
             return String(localized: "Choose Microphone")
         case .model:
-            return String(localized: "Download Transcription Model")
+            return String(localized: "Set up Soniox")
         case .api:
             return String(localized: "Verify API Key")
         case .experience:
@@ -80,7 +80,7 @@ enum OnboardingStage: String, CaseIterable {
         case .microphone:
             return String(localized: "Pick the microphone Whisper Pro should use for recordings.")
         case .model:
-            return String(localized: "Whisper Pro will download NVIDIA's Parakeet model to set up fast local transcription.")
+            return String(localized: "Connect Soniox so Whisper Pro can transcribe your dictation.")
         case .api:
             return String(localized: "Whisper Pro uses LLMs to enhance transcripts and perform AI actions. Set up an API key before continuing.")
         case .experience:
@@ -95,7 +95,7 @@ enum OnboardingStage: String, CaseIterable {
     }
 
     static var baseStepCount: Int {
-        4
+        3
     }
 }
 

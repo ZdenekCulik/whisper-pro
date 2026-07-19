@@ -1,6 +1,5 @@
 import Foundation
 import AppKit
-import Carbon
 import ApplicationServices
 import os
 
@@ -75,7 +74,7 @@ class CursorPaster {
 
         await wait(prePasteDelay)
 
-        let pasteResult = await postPasteCommand()
+        let pasteResult = await pasteFromClipboard()
         if shouldRestoreClipboard {
             scheduleClipboardRestore(
                 savedContents,
@@ -96,15 +95,6 @@ class CursorPaster {
                 }
                 return nil
             }
-        }
-    }
-
-    @MainActor
-    private static func postPasteCommand() async -> PasteResult {
-        if PasteMethod.current() == .appleScript {
-            return pasteUsingAppleScript() ? .commandPosted : .commandNotPosted
-        } else {
-            return await pasteFromClipboard()
         }
     }
 
@@ -150,42 +140,6 @@ class CursorPaster {
         }
     }
 
-    // MARK: - AppleScript paste
-
-    // "X – QWERTY ⌘" layouts remap to QWERTY when Command is held, so keystroke "v" resolves
-    // the wrong key code. key code 9 (physical V) bypasses layout translation for those layouts.
-    private static func makeScript(_ source: String) -> NSAppleScript? {
-        let script = NSAppleScript(source: source)
-        var error: NSDictionary?
-        script?.compileAndReturnError(&error)
-        return script
-    }
-
-    private static let pasteScriptKeystroke = makeScript("tell application \"System Events\" to keystroke \"v\" using command down")
-    private static let pasteScriptKeyCode   = makeScript("tell application \"System Events\" to key code 9 using command down")
-
-    @MainActor
-    private static var layoutSwitchesToQWERTYOnCommand: Bool {
-        let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
-        guard let nameRef = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) else { return false }
-        return (Unmanaged<CFString>.fromOpaque(nameRef).takeUnretainedValue() as String).hasSuffix("⌘")
-    }
-
-    @MainActor
-    private static func pasteUsingAppleScript() -> Bool {
-        guard let script = layoutSwitchesToQWERTYOnCommand ? pasteScriptKeyCode : pasteScriptKeystroke else {
-            logger.error("AppleScript paste script is unavailable")
-            return false
-        }
-
-        var error: NSDictionary?
-        script.executeAndReturnError(&error)
-        if let error {
-            logger.error("AppleScript paste failed: \(String(describing: error), privacy: .public)")
-        }
-        return error == nil
-    }
-
     // MARK: - CGEvent paste
 
     // Posts Cmd+V via CGEvent without modifying the active input source.
@@ -227,8 +181,12 @@ class CursorPaster {
     /// field/area, combo box, or anything with a settable value — covers most web
     /// editors). When nothing is focused or the focus is non-editable, returns
     /// false so the caller copies to the clipboard instead of pasting.
+    ///
+    /// Exposed (not `private`) so callers can decide up front whether a paste will
+    /// land in an editable field — e.g. the recorder panel uses this to know
+    /// whether to dismiss immediately or show a "⌘V to paste" hint first.
     @MainActor
-    private static func focusedElementLikelyEditable() -> Bool {
+    static func focusedElementLikelyEditable() -> Bool {
         guard AXIsProcessTrusted() else { return true } // can't detect → behave as before
 
         let systemWide = AXUIElementCreateSystemWide()

@@ -27,6 +27,7 @@ enum RecorderPanelStyle: String, CaseIterable, Identifiable {
 protocol RecorderPanelPresenting: AnyObject {
     var isRecorderPanelVisible: Bool { get }
     func dismissRecorderPanel() async
+    func dismissRecorderPanelWithPasteHint() async
 }
 
 @MainActor
@@ -59,6 +60,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     private var notchWindowManager: NotchWindowManager?
     private var miniWindowManager: MiniWindowManager?
     private var coachDismissTask: Task<Void, Never>?
+    private var pasteHintDismissTask: Task<Void, Never>?
 
     private weak var engine: WhisperProEngine?
     private var recorder: Recorder?
@@ -77,19 +79,54 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
         engine?.isCancelConfirming = confirming
     }
 
-    /// Second Escape: play the dissolve + shrink-close in the panel, then tear it down.
+    /// Second Escape: play the dismiss effect (see DismissEffectStyle) in the panel,
+    /// then tear it down.
     func cancelRecordingAnimated() async {
         guard let engine else { return }
         engine.isCancelConfirming = false
         engine.isCanceling = true
-        // Let the widget run its text dissolve (~0.5s) and then the shrink-close (~0.45s)
-        // before the window is actually torn down.
-        try? await Task.sleep(nanoseconds: 1_050_000_000)
+        // Let the widget play its chosen dismiss effect (sparkle / vanish / sequential
+        // dissolve / content scatter — see Variant2View) before the window is actually
+        // torn down.
+        let effectDuration = DismissEffectStyle.stored.duration
+        try? await Task.sleep(nanoseconds: UInt64(effectDuration * 1_000_000_000))
         // Keep isCanceling true through teardown so the pill stays collapsed/faded and
         // doesn't animate back up before the window is hidden. Reset only after the
         // panel is gone so the next spawn starts clean.
-        await cancelRecording()
+        await cancelRecordingAfterEffect()
         engine.isCanceling = false
+    }
+
+    /// Same teardown as `cancelRecording()`, used only right after the panel has
+    /// already played its own dismiss effect above. Most effects already animate the
+    /// shell/panel to invisible themselves by this point, so — unlike the plain
+    /// `dismissRecorderPanel()` path, which intentionally keeps MiniWindowManager's own
+    /// reveal/dismiss fade for a normal successful dismiss — the window must NOT also
+    /// re-animate its scale/opacity/offset on top of that: if the effect's timing is
+    /// even slightly off, the window's own fade would visibly stack on top of it,
+    /// which is exactly the live-vs-preview mismatch this exists to close. The one
+    /// exception is `.textScatterOnly` (V6), which deliberately never touches the
+    /// shell — see `DismissEffectStyle.skipsWindowFadeOnCancel` — so it needs the
+    /// window's own fade left on to make the shell disappear at all.
+    private func cancelRecordingAfterEffect() async {
+        guard let engine = engine else { return }
+        await engine.cancelRecording()
+
+        pasteHintDismissTask?.cancel()
+        pasteHintDismissTask = nil
+        engine.pasteHintText = nil
+        cancelCoachSuggestionDisplay()
+
+        switch recorderPanelStyle {
+        case .notch:
+            // Notch never uses DismissEffectStyle, so its own hide animation is still
+            // the only exit it plays — nothing to skip.
+            notchWindowManager?.hide()
+        case .mini:
+            miniWindowManager?.hide(skipAnimation: DismissEffectStyle.stored.skipsWindowFadeOnCancel)
+        }
+        isRecorderPanelVisible = false
+        engine.assistantSession.reset()
     }
 
     private let logger = Logger(subsystem: "com.prakashjoshipax.whisperpro", category: "RecorderUIManager")
@@ -232,15 +269,47 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     func dismissRecorderPanel() async {
         guard let engine = engine else { return }
 
+        pasteHintDismissTask?.cancel()
+        pasteHintDismissTask = nil
+        engine.pasteHintText = nil
+
         cancelCoachSuggestionDisplay()
         hideRecorderPanel()
         isRecorderPanelVisible = false
         engine.assistantSession.reset()
     }
 
+    /// Called instead of `dismissRecorderPanel()` when the transcript couldn't be
+    /// auto-pasted (no editable field focused). Shows a brief "⌘V to paste" hint
+    /// in the panel instead of a toast that would overlap it, then dismisses as
+    /// normal. Falls back to the toast if the panel isn't on screen at all.
+    func dismissRecorderPanelWithPasteHint() async {
+        guard isRecorderPanelVisible, let engine = engine else {
+            NotificationManager.shared.showNotification(
+                title: String(localized: "Copied to clipboard — paste anywhere with ⌘V"),
+                type: .success
+            )
+            return
+        }
+
+        cancelCoachSuggestionDisplay()
+        engine.pasteHintText = String(localized: "⌘V to paste")
+
+        pasteHintDismissTask?.cancel()
+        pasteHintDismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard let self, !Task.isCancelled else { return }
+            self.pasteHintDismissTask = nil
+            await self.dismissRecorderPanel()
+        }
+    }
+
     func resetOnLaunch() async {
         guard let engine = engine else { return }
         logger.notice("Resetting recording state on launch")
+        pasteHintDismissTask?.cancel()
+        pasteHintDismissTask = nil
+        engine.pasteHintText = nil
         cancelCoachSuggestionDisplay()
         await engine.resetRecordingSession()
         hideRecorderPanel()

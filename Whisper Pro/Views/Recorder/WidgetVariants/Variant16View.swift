@@ -5,40 +5,35 @@ import SwiftUI
 /// A single-line capsule: a tiny live dot on the left whose glow tracks the audio
 /// level, then the transcript flowing to the right on one line. Committed words are
 /// solid white, the still-revising tail is dimmed. No waveform bars, no chrome, no
-/// toggle. The capsule's width grows with the text (up to a cap, then the line
-/// scrolls so the newest words stay visible).
+/// toggle. The capsule is a fixed width; once the text outgrows it the line scrolls
+/// internally so the newest words stay visible.
 struct Variant16View: View {
     let context: WidgetVariantContext
 
     private static let fontSize: CGFloat = 13
     private static let height: CGFloat = 30
-    private static let idleWidth: CGFloat = 96
-    private static let minTextWidth: CGFloat = 140
     private static let maxTextWidth: CGFloat = 420
     private static let horizontalPadding: CGFloat = 12
     private static let dotSize: CGFloat = 7
 
-    // Width tracks the intrinsic text width so the pill hugs the words and grows as
-    // they accumulate, capped before it scrolls.
+    // Text still scrolls internally once it outgrows the capsule (see transcriptLine),
+    // but the capsule itself no longer grows/shrinks with it — it's pinned at the
+    // widest size it would otherwise expand to, so it never resizes mid-dictation.
     @State private var measuredTextWidth: CGFloat = 0
+    @State private var visibleTextWidth: CGFloat = 0
 
-    private var pillWidth: CGFloat {
-        guard context.hasText else { return Self.idleWidth }
-        // dot + gap + text + horizontal padding on both ends.
-        let chrome = Self.horizontalPadding * 2 + Self.dotSize + 8
-        let target = measuredTextWidth + chrome
-        return min(Self.maxTextWidth, max(Self.minTextWidth, target))
-    }
+    private var pillWidth: CGFloat { Self.maxTextWidth }
 
     var body: some View {
         capsule
             // Room below so the soft shadow isn't clipped by the panel edge.
             .padding(.bottom, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-            // Second Escape: fade the whole pill away.
+            // Second Escape: fade (and blur) the whole pill away so it melts off
+            // instead of just flatly fading — same dismiss feel as Classic.
             .opacity(context.isCanceling ? 0 : 1)
+            .blur(radius: context.isCanceling ? 12 : 0)
             .animation(.easeOut(duration: 0.3).delay(0.1), value: context.isCanceling)
-            .animation(.spring(response: 0.38, dampingFraction: 0.85), value: pillWidth)
     }
 
     private var capsule: some View {
@@ -100,11 +95,18 @@ struct Variant16View: View {
                     .id("end")
             }
             .onPreferenceChange(PillTextWidthKey.self) { measuredTextWidth = $0 }
-            // Soft fade on the leading edge so scrolled-off words dissolve cleanly.
+            .background(
+                GeometryReader { geo in
+                    Color.clear.onAppear { visibleTextWidth = geo.size.width }
+                        .onChange(of: geo.size.width) { _, newValue in visibleTextWidth = newValue }
+                }
+            )
+            // Soft fade on the leading edge so scrolled-off words dissolve cleanly —
+            // only once the line actually overflows; short text stays fully visible.
             .mask(
                 LinearGradient(
                     stops: [
-                        .init(color: .clear, location: 0.0),
+                        .init(color: measuredTextWidth > visibleTextWidth ? .clear : .black, location: 0.0),
                         .init(color: .black, location: 0.06),
                         .init(color: .black, location: 1.0)
                     ],
@@ -127,7 +129,7 @@ struct Variant16View: View {
     private var styledText: Text {
         let committed = Text(context.committed).foregroundColor(.white)
         guard !context.partial.isEmpty else { return committed }
-        return committed + Text(context.partial).foregroundColor(.white.opacity(0.4))
+        return committed + Text(context.partial).foregroundColor(.white.opacity(0.55))
     }
 
     // Idle / processing: one quiet word instead of bars.

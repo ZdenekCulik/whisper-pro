@@ -10,7 +10,7 @@ struct OnboardingTrustScreen: View {
         OnboardingStepScreen(
             systemImage: "lock.shield",
             title: "Privacy Starts Here",
-            subtitle: "Review how Whisper Pro handles your data before choosing a license.",
+            subtitle: "Review how Whisper Pro handles your data before you get started.",
             contentMaxWidth: max(contentMaxWidth, 720),
             showsHeader: false,
             contentYOffset: 0
@@ -19,7 +19,7 @@ struct OnboardingTrustScreen: View {
         } bottomBar: {
             OnboardingBottomBar(
                 leadingTitle: "Back",
-                primaryTitle: "Continue",
+                primaryTitle: "Get Started",
                 isPrimaryEnabled: true,
                 onLeading: onBack,
                 onPrimary: onContinue

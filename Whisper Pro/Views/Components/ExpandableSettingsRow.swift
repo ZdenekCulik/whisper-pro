@@ -54,6 +54,8 @@ struct ExpandableSettingsRow<Content: View>: View {
                     Toggle(isOn: isEnabled) {
                         labelView
                     }
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
                 } else {
                     labelView
                 }

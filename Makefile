@@ -4,7 +4,7 @@ WHISPER_CPP_DIR := $(DEPS_DIR)/whisper.cpp
 FRAMEWORK_PATH := $(WHISPER_CPP_DIR)/build-apple/whisper.xcframework
 LOCAL_DERIVED_DATA := $(CURDIR)/.local-build
 
-.PHONY: all clean whisper setup build local signed check healthcheck help dev run
+.PHONY: all clean whisper setup build local signed dmg check healthcheck help dev run
 
 # Stable signed dev build: signed with your Apple Development cert so macOS
 # permissions (Accessibility, Microphone) survive every rebuild — grant once.
@@ -25,6 +25,13 @@ APP_BUNDLE_ID := com.prakashjoshipax.WhisperPro
 # Local, untracked overrides (your personal SIGN_IDENTITY / DEV_TEAM). Optional;
 # silently skipped if absent.
 -include Makefile.local
+
+# `make dmg` distribution signing identity — defaults to your SIGN_IDENTITY (Apple
+# Development), which is enough to produce a runnable DMG; the friend just has to
+# "Open Anyway" past Gatekeeper once. If you have a paid Apple Developer Program
+# membership, set your own in Makefile.local for a Developer ID + notarized build:
+#   DIST_IDENTITY := Developer ID Application: You (YOURTEAMID)
+DIST_IDENTITY ?= $(SIGN_IDENTITY)
 
 # Default target
 all: check build
@@ -134,6 +141,15 @@ signed: check setup sync-api-keys
 	echo ">> First time only: grant Accessibility + Microphone to 'Whisper Pro Dev'." && \
 	echo ">> Every future 'make signed' keeps the same signature — no re-granting."
 
+# Build a distributable DMG (Release, ad-hoc/personal-cert signed with minimal
+# entitlements — no iCloud/keychain-group, so no provisioning profile needed).
+# For sharing the app with someone outside this Mac. Does not touch /Applications
+# or the running dev build. See scripts/make-dmg.sh for the full pipeline.
+dmg: check setup
+	@DIST_IDENTITY="$(DIST_IDENTITY)" \
+	APP_BUNDLE_ID="$(APP_BUNDLE_ID)" \
+	./scripts/make-dmg.sh
+
 # Run application
 run:
 	@if [ -d "$$HOME/Downloads/Whisper Pro.app" ]; then \
@@ -165,6 +181,7 @@ help:
 	@echo "  setup              Copy whisper XCFramework to Whisper Pro project"
 	@echo "  build              Build the Whisper Pro Xcode project"
 	@echo "  local              Build for local use (no Apple Developer certificate needed)"
+	@echo "  dmg                Build a distributable DMG (dist/WhisperPro-<version>.dmg)"
 	@echo "  run                Launch the built Whisper Pro app"
 	@echo "  dev                Build and run the app (for development)"
 	@echo "  all                Run full build process (default)"

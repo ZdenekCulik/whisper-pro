@@ -20,6 +20,5 @@ extension Notification.Name {
     static let sessionMetricsDidChange = Notification.Name("sessionMetricsDidChange")
     static let typedMetricsDidChange = Notification.Name("typedMetricsDidChange")
     static let englishCoachCorrectionReady = Notification.Name("englishCoachCorrectionReady")
-    static let openFileForTranscription = Notification.Name("openFileForTranscription")
     static let audioDeviceSwitchRequired = Notification.Name("audioDeviceSwitchRequired")
 }

@@ -106,7 +106,10 @@ struct DashboardContent: View {
     @State private var isModelStatsPanelPresented = false
     @State private var isAccessibilityEnabled = AXIsProcessTrusted()
     @State private var isSystemInfoCopied = false
-    @AppStorage("dashboardHeroVariant") private var heroVariant: DashboardHeroVariant = .overview
+    // Only the Overview layout is offered anymore (Settings' Dashboard Layout picker
+    // was removed) — hardcoded rather than read from UserDefaults so a leftover
+    // persisted pick from before the trim can't resurrect a dead layout.
+    private let heroVariant: DashboardHeroVariant = .overview
     @EnvironmentObject private var themeManager: ThemeManager
 
     init(
@@ -124,6 +127,7 @@ struct DashboardContent: View {
         _totalDuration = State(initialValue: cachedSummary?.totalDuration ?? 0)
         _wordsToday = State(initialValue: cachedSummary?.wordsToday ?? 0)
         _hasLoadedStatsSnapshot = State(initialValue: cachedSummary != nil)
+        _insightsData = State(initialValue: InsightsDataCache.shared.current())
     }
 
     private func openModelStatsPanel() {
@@ -253,7 +257,12 @@ struct DashboardContent: View {
         do {
             let data = try await InsightsLoader.load(from: modelContext.container)
             guard !Task.isCancelled else { return }
-            await MainActor.run { self.insightsData = data }
+            await MainActor.run {
+                self.insightsData = data
+                if let data {
+                    InsightsDataCache.shared.update(data)
+                }
+            }
         } catch is CancellationError {
         } catch {
             logger.error("Error loading insights: \(error, privacy: .public)")
@@ -419,7 +428,9 @@ struct DashboardContent: View {
         }
         .padding(.horizontal, 14)
         .frame(width: nil, height: 36, alignment: .center)
-        .background(AppCardBackground(cornerRadius: 18))
+        .glassSurface(cornerRadius: 18) {
+            AppCardBackground(cornerRadius: 18)
+        }
     }
 
     private func copySystemInfo() {

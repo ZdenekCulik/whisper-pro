@@ -28,8 +28,10 @@ class WhisperProEngine: NSObject, ObservableObject {
     // text steady and only dim the unstable tail, which kills the "jumping" effect.
     @Published var committedTranscript: String = ""
     @Published var partialTail: String = ""
+    // "⌘V to paste" hint shown in the panel when the transcript couldn't be
+    // auto-inserted (no editable field focused). See RecorderUIManager.
+    @Published var pasteHintText: String? = nil
     private static let liveTranscriptPublishInterval: TimeInterval = 1.0 / 20.0
-    private static let liveTranscriptDisplayCharacters = 360
     private var lastLiveTranscriptPublishAt = Date.distantPast
     private var pendingLiveTranscriptUpdate: (committed: String, partial: String)?
     private var liveTranscriptPublishTask: Task<Void, Never>?
@@ -229,6 +231,29 @@ class WhisperProEngine: NSObject, ObservableObject {
                             self.recordingState = .starting
                             self.recorder.scheduleSystemMute()
 
+                            // Connect to the streaming provider now, in parallel with the
+                            // (slower) microphone startup, so the first words appear sooner.
+                            // Audio keeps accumulating in pendingChunks until the mode below
+                            // is confirmed — if the mode switches the model, a fresh session
+                            // gets the full audio from that buffer.
+                            var earlyConfiguration: TranscriptionRuntimeConfiguration?
+                            var earlyCallback: ((Data) -> Void)?
+                            if let configuration = ModeRuntimeResolver.transcriptionConfiguration(
+                                transcriptionModelManager: self.transcriptionModelManager
+                            ), self.serviceRegistry.shouldUseRealtimeTranscription(for: configuration) {
+                                earlyConfiguration = configuration
+                                earlyCallback = try await self.makeRealtimeSession(
+                                    configuration: configuration,
+                                    startID: startID
+                                )
+                                if let earlyCallback {
+                                    self.recorder.onAudioChunk = { data in
+                                        pendingChunks.withLock { $0.append(data) }
+                                        earlyCallback(data)
+                                    }
+                                }
+                            }
+
                             try await self.recorder.startRecording(toOutputFile: permanentURL)
 
                             guard self.activeRecordingStartID == startID,
@@ -238,6 +263,7 @@ class WhisperProEngine: NSObject, ObservableObject {
                                 let shouldKeepRecordingFile = self.shouldCancelRecording
                                 if self.activeRecordingStartID == startID {
                                     await self.recorder.stopRecording()
+                                    self.cancelCurrentSession()
                                     if !shouldKeepRecordingFile {
                                         self.recordedFile = nil
                                     }
@@ -264,6 +290,7 @@ class WhisperProEngine: NSObject, ObservableObject {
                             ) else {
                                 NotificationManager.shared.showNotification(title: String(localized: "No AI Model Selected"), type: .error)
                                 await self.recorder.stopRecording()
+                                self.cancelCurrentSession()
                                 try? FileManager.default.removeItem(at: permanentURL)
                                 self.recordedFile = nil
                                 self.recordingState = .idle
@@ -275,37 +302,35 @@ class WhisperProEngine: NSObject, ObservableObject {
                             }
 
                             if self.serviceRegistry.shouldUseRealtimeTranscription(for: transcriptionConfiguration) {
-                                let session = self.serviceRegistry.createSession(
-                                    for: transcriptionConfiguration,
-                                    onPartialTranscript: { [weak self] committed, partial in
-                                        Task { @MainActor in
-                                            guard let self,
-                                                  self.activeRecordingStartID == startID,
-                                                  self.recordingState == .recording else {
-                                                return
-                                            }
-                                            self.scheduleLiveTranscriptUpdate(committed: committed, partial: partial)
-                                        }
+                                if let earlyConfiguration,
+                                   Self.isEquivalentRealtimeConfiguration(earlyConfiguration, transcriptionConfiguration) {
+                                    // The early session is already streaming all audio; stop
+                                    // keeping the duplicate copy in pendingChunks.
+                                    if let earlyCallback {
+                                        self.recorder.onAudioChunk = earlyCallback
                                     }
-                                )
-                                self.currentSession = session
-                                self.currentSessionTranscriptionConfiguration = transcriptionConfiguration
-                                let realCallback = try await session.prepare(
-                                    configuration: transcriptionConfiguration
-                                )
+                                    pendingChunks.withLock { $0.removeAll() }
+                                } else {
+                                    // The applied mode changed the model — replace the early
+                                    // session and replay the full audio from the buffer.
+                                    self.cancelCurrentSession()
+                                    let realCallback = try await self.makeRealtimeSession(
+                                        configuration: transcriptionConfiguration,
+                                        startID: startID
+                                    )
 
-                                if let realCallback {
-                                    self.recorder.onAudioChunk = realCallback
-                                    let buffered = pendingChunks.withLock { chunks -> [Data] in
-                                        let result = chunks
-                                        chunks.removeAll()
-                                        return result
+                                    if let realCallback {
+                                        self.recorder.onAudioChunk = realCallback
+                                        let buffered = pendingChunks.withLock { chunks -> [Data] in
+                                            let result = chunks
+                                            chunks.removeAll()
+                                            return result
+                                        }
+                                        for chunk in buffered { realCallback(chunk) }
                                     }
-                                    for chunk in buffered { realCallback(chunk) }
                                 }
                             } else {
-                                self.currentSession = nil
-                                self.currentSessionTranscriptionConfiguration = nil
+                                self.cancelCurrentSession()
                                 self.recorder.onAudioChunk = nil
                                 pendingChunks.withLock { $0.removeAll() }
                             }
@@ -361,6 +386,41 @@ class WhisperProEngine: NSObject, ObservableObject {
         response(true)
     }
 
+    /// Creates + prepares a realtime session and installs it as the current one.
+    /// Returns the audio-chunk callback from `prepare` (the socket keeps connecting
+    /// in the background).
+    private func makeRealtimeSession(
+        configuration: TranscriptionRuntimeConfiguration,
+        startID: UUID
+    ) async throws -> ((Data) -> Void)? {
+        let session = serviceRegistry.createSession(
+            for: configuration,
+            onPartialTranscript: { [weak self] committed, partial in
+                Task { @MainActor in
+                    guard let self,
+                          self.activeRecordingStartID == startID,
+                          self.recordingState == .recording else {
+                        return
+                    }
+                    self.scheduleLiveTranscriptUpdate(committed: committed, partial: partial)
+                }
+            }
+        )
+        currentSession = session
+        currentSessionTranscriptionConfiguration = configuration
+        return try await session.prepare(configuration: configuration)
+    }
+
+    private static func isEquivalentRealtimeConfiguration(
+        _ a: TranscriptionRuntimeConfiguration,
+        _ b: TranscriptionRuntimeConfiguration
+    ) -> Bool {
+        a.model.name == b.model.name &&
+        a.model.provider == b.model.provider &&
+        a.language == b.language &&
+        a.isRealtimeEnabled == b.isRealtimeEnabled
+    }
+
     private func scheduleLiveTranscriptUpdate(committed: String, partial: String) {
         guard recordingState == .recording else { return }
 
@@ -391,9 +451,9 @@ class WhisperProEngine: NSObject, ObservableObject {
     private func publishLiveTranscript(committed: String, partial: String, now: Date = Date()) {
         guard recordingState == .recording else { return }
         let fullCombined = [committed, partial].filter { !$0.isEmpty }.joined(separator: " ")
-        let display = Self.liveTranscriptDisplayWindow(committed: committed, partial: partial)
-        let combined = [display.committed, display.partial].filter { !$0.isEmpty }.joined(separator: " ")
-        // Persist the full text, while the published UI only carries a cheap recent window.
+        // The panel shows the full text (scrollable) — never a "..."-prefixed window.
+        let display = (committed: committed, partial: partial)
+        let combined = fullCombined
         transcriptRecovery.update(fullCombined)
 
         guard committedTranscript != display.committed ||
@@ -414,33 +474,6 @@ class WhisperProEngine: NSObject, ObservableObject {
         liveTranscriptPublishTask = nil
         pendingLiveTranscriptUpdate = nil
         lastLiveTranscriptPublishAt = .distantPast
-    }
-
-    private static func liveTranscriptDisplayWindow(
-        committed: String,
-        partial: String
-    ) -> (committed: String, partial: String) {
-        let maxCharacters = liveTranscriptDisplayCharacters
-        let partialWindow = partial.suffix(maxCharacters)
-        let partialWasTrimmed = partialWindow.startIndex != partial.startIndex
-        let visiblePartial = (partialWasTrimmed ? "..." : "") + String(partialWindow)
-
-        let remainingCharacters = max(0, maxCharacters - visiblePartial.count)
-        guard remainingCharacters > 0 else {
-            return ("", visiblePartial)
-        }
-
-        let committedWindow = committed.suffix(remainingCharacters)
-        let committedWasTrimmed = committedWindow.startIndex != committed.startIndex
-        var visibleCommitted = String(committedWindow)
-        if committedWasTrimmed {
-            while let first = visibleCommitted.first, !first.isWhitespace {
-                visibleCommitted.removeFirst()
-            }
-            visibleCommitted = "..." + visibleCommitted.trimmingCharacters(in: .whitespaces)
-        }
-
-        return (visibleCommitted, visiblePartial)
     }
 
     // MARK: - Recording Context
@@ -533,6 +566,10 @@ class WhisperProEngine: NSObject, ObservableObject {
             onDismiss: { [weak self] in
                 guard let self, self.activePipelineTranscriptionID == transcriptionID else { return }
                 await self.recorderUIManager?.dismissRecorderPanel()
+            },
+            onPasteHint: { [weak self] in
+                guard let self, self.activePipelineTranscriptionID == transcriptionID else { return }
+                await self.recorderUIManager?.dismissRecorderPanelWithPasteHint()
             },
             assistant: TranscriptionPipeline.AssistantHooks(
                 isFollowUp: activePipelineUseCase.isAssistantFollowUp,

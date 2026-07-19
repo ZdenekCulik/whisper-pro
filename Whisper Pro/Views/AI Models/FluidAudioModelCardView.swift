@@ -117,7 +117,9 @@ struct FluidAudioModelCardView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Capsule().fill(AppTheme.Accent.primary))
+                    .glassSurface(in: Capsule(), tint: GlassSurface.accentButtonTint) {
+                        Capsule().fill(AppTheme.Accent.primary)
+                    }
                 }
                 .buttonStyle(.plain)
                 .disabled(isDownloading)

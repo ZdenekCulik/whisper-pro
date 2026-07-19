@@ -3,12 +3,9 @@ import OSLog
 
 enum ViewType: String, CaseIterable, Identifiable {
     case dashboard = "Dashboard"
-    case waveforms = "Waveforms"
     case stats = "Stats"
-    case modes = "Modes"
     case englishCoach = "English coach"
     case models = "AI Models"
-    case transcribeAudio = "Transcribe Audio"
     case history = "History"
     case audio = "Audio"
     case dictionary = "Dictionary"
@@ -68,22 +65,16 @@ struct ContentView: View {
         switch viewType {
         case .dashboard:
             DashboardView()
-        case .waveforms:
-            WaveformDebugView()
         case .stats:
             StatsView()
         case .models:
             ModelManagementView()
-        case .transcribeAudio:
-            AudioTranscribeView()
         case .history:
             InlineHistoryView()
         case .audio:
             AudioSetupView()
         case .dictionary:
             DictionarySettingsView()
-        case .modes:
-            ModeView()
         case .englishCoach:
             EnglishCoachView()
         case .settings:

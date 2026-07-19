@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct AppSidebar: View {
     @Binding var selectedView: ViewType
@@ -13,7 +14,7 @@ struct AppSidebar: View {
             Spacer(minLength: 16)
 
             Divider()
-                .overlay(AppTheme.Border.canvasCard)
+                .overlay(AppTheme.Border.canvasCard.opacity(0.35))
                 .padding(.horizontal, 18)
                 .padding(.bottom, 10)
 
@@ -30,12 +31,22 @@ struct AppSidebar: View {
     // MARK: Header (logo + wordmark)
 
     private var sidebarHeader: some View {
-        HStack(spacing: 9) {
-            AppLogoMark()
-            Text("Whisper Pro")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(AppTheme.Text.primary)
-            Spacer(minLength: 0)
+        Button {
+            selectedView = .dashboard
+        } label: {
+            HStack(spacing: 9) {
+                AppLogoMark()
+                Text("Whisper Pro")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(AppTheme.Text.primary)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Go to Dashboard")
+        .onHover { hovering in
+            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 16)
@@ -81,29 +92,16 @@ private struct AppLogoMark: View {
 
 private extension ViewType {
     var title: LocalizedStringKey {
-        switch self {
-        case .transcribeAudio:
-            return "Transcribe"
-        default:
-            return LocalizedStringKey(rawValue)
-        }
+        LocalizedStringKey(rawValue)
     }
 
     var accessibilityTitle: String {
-        switch self {
-        case .transcribeAudio:
-            return "Transcribe"
-        default:
-            return rawValue
-        }
+        rawValue
     }
 
     static let primaryItems: [ViewType] = [
         .dashboard,
-        .waveforms,
         .stats,
-        .modes,
-        .transcribeAudio,
         .history,
         .dictionary,
         .englishCoach,
@@ -126,13 +124,10 @@ private extension ViewType {
     var icon: String {
         switch self {
         case .dashboard: return "gauge.medium"
-        case .waveforms: return "waveform"
         case .stats: return "chart.bar.xaxis"
         case .englishCoach: return "graduationcap.fill"
-        case .transcribeAudio: return "waveform.path"
         case .history: return "doc.text.fill"
         case .models: return "cpu"
-        case .modes: return "sparkles.square.fill.on.square"
         case .audio: return "mic.fill"
         case .dictionary: return "text.book.closed.fill"
         case .settings: return "gearshape.fill"
@@ -144,14 +139,10 @@ private extension ViewType {
         switch self {
         case .dashboard:
             return .init(background: AppTheme.Sidebar.dashboard)
-        case .waveforms:
-            return .init(background: AppTheme.Sidebar.modes)
         case .stats:
             return .init(background: AppTheme.Sidebar.dictionary)
         case .englishCoach:
             return .init(background: AppTheme.Sidebar.license)
-        case .modes:
-            return .init(background: AppTheme.Sidebar.modes)
         case .models:
             return .init(background: AppTheme.Sidebar.models)
         case .audio:
@@ -160,8 +151,6 @@ private extension ViewType {
             return .init(background: AppTheme.Sidebar.dictionary)
         case .history:
             return .init(background: AppTheme.Sidebar.audio)
-        case .transcribeAudio:
-            return .init(background: AppTheme.Sidebar.transcribeAudio)
         case .settings:
             return .init(background: AppTheme.Sidebar.fallback)
         case .license:

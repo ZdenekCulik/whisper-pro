@@ -568,6 +568,8 @@ private struct CustomModelToggleRow: View {
                 .frame(width: CustomModelEditorMetrics.labelWidth, alignment: .leading)
 
             Toggle("", isOn: $isOn)
+                .toggleStyle(.switch)
+                .controlSize(.small)
                 .labelsHidden()
 
             Spacer(minLength: 0)

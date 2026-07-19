@@ -11,4 +11,7 @@ protocol RecorderStateProvider: AnyObject {
     // Escape-to-cancel overlay state.
     var isCancelConfirming: Bool { get }
     var isCanceling: Bool { get }
+    // Set when the transcript couldn't be auto-pasted (no editable field focused);
+    // the panel shows this text briefly instead of the toast notification.
+    var pasteHintText: String? { get }
 }

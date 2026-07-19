@@ -45,8 +45,10 @@ playground.xcworkspace
 .build/
 build/
 .local-build/
+.local-build-release/
 .local-test-build/
 .local-home/
+dist/
 
 ## Code coverage
 *.profraw

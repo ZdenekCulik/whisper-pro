@@ -1,0 +1,107 @@
+#!/bin/bash
+# Build a distributable DMG of Whisper Pro: Release build, ad-hoc/personal-cert
+# signed with a minimal (no iCloud, no keychain-access-groups, no aps-environment)
+# entitlements set — none of which need a provisioning profile. Meant for sharing
+# with someone outside this Mac, e.g. "make dmg".
+#
+# Without a paid "Developer ID Application" cert + notarization (override
+# DIST_IDENTITY in Makefile.local if you have one), the friend has to right-click
+# → Open (or System Settings → Privacy & Security → "Open Anyway") on first launch.
+#
+# Does NOT touch /Applications and does NOT kill the running app — this only
+# builds into its own derived-data dir and packages a DMG in dist/.
+set -euo pipefail
+cd "$(dirname "$0")/.." || exit 1
+
+PROJECT="Whisper Pro.xcodeproj"
+SCHEME="Whisper Pro"
+SIGN_IDENTITY="${DIST_IDENTITY:-Apple Development}"
+APP_BUNDLE_ID="${APP_BUNDLE_ID:-com.prakashjoshipax.WhisperPro}"
+DERIVED_DATA="${DIST_DERIVED_DATA:-$PWD/.local-build-release}"
+ENTITLEMENTS="${DIST_ENTITLEMENTS:-$PWD/Whisper Pro/WhisperPro.dist.entitlements}"
+NOTARY_PROFILE="whisperpro-notary"
+
+echo "▶ Reading version…"
+VERSION=$(xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
+  -showBuildSettings 2>/dev/null | awk -F'= ' '/ MARKETING_VERSION /{print $2; exit}')
+[ -n "$VERSION" ] || { echo "❌ Could not read MARKETING_VERSION"; exit 1; }
+echo "  Version: $VERSION"
+
+echo "▶ Building Whisper Pro (Release, ad-hoc, minimal entitlements)…"
+rm -rf "$DERIVED_DATA"
+xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
+  -derivedDataPath "$DERIVED_DATA" \
+  -xcconfig LocalBuild.xcconfig \
+  CODE_SIGN_IDENTITY="-" \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGNING_ALLOWED=YES \
+  DEVELOPMENT_TEAM="" \
+  PRODUCT_BUNDLE_IDENTIFIER="$APP_BUNDLE_ID" \
+  ENABLE_DEBUG_DYLIB=NO \
+  CODE_SIGN_ENTITLEMENTS="$ENTITLEMENTS" \
+  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) LOCAL_BUILD' \
+  build
+
+BUILT_APP="$DERIVED_DATA/Build/Products/Release/Whisper Pro.app"
+[ -d "$BUILT_APP" ] || { echo "❌ Build product not found at $BUILT_APP"; exit 1; }
+
+echo "▶ Re-signing with $SIGN_IDENTITY (hardened runtime, minimal entitlements)…"
+WORK="$DERIVED_DATA/dmg-staging"
+rm -rf "$WORK"
+mkdir -p "$WORK"
+ditto "$BUILT_APP" "$WORK/Whisper Pro.app"
+xattr -cr "$WORK/Whisper Pro.app"
+codesign --force --deep --options runtime \
+  --entitlements "$ENTITLEMENTS" \
+  --sign "$SIGN_IDENTITY" "$WORK/Whisper Pro.app"
+
+echo "▶ Verifying signature…"
+codesign --verify --deep --strict "$WORK/Whisper Pro.app"
+codesign -d --entitlements - "$WORK/Whisper Pro.app" 2>/dev/null | tail -n +2
+
+ln -s /Applications "$WORK/Applications"
+cat > "$WORK/READ ME.txt" <<'EOF'
+Whisper Pro — install
+
+1. Drag "Whisper Pro" into the Applications folder.
+2. If macOS blocks the first launch: System Settings → Privacy & Security →
+   scroll down → "Open Anyway".
+3. On first launch the app walks you through connecting Soniox (speech
+   service) — you'll need a free Soniox account + ~$5 credit at
+   https://console.soniox.com
+EOF
+
+mkdir -p dist
+DMG="$PWD/dist/WhisperPro-$VERSION.dmg"
+rm -f "$DMG"
+
+echo "▶ Packaging DMG…"
+hdiutil create -volname "Whisper Pro" -srcfolder "$WORK" -ov -format UDZO "$DMG" >/dev/null
+
+if xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
+  echo "▶ Notarizing…"
+  xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
+  xcrun stapler staple "$DMG"
+else
+  echo "⚠️  Notarization skipped — no '$NOTARY_PROFILE' keychain profile found."
+  echo "   One-time setup (needs a paid Apple Developer Program membership +"
+  echo "   Developer ID Application cert):"
+  echo "     xcrun notarytool store-credentials $NOTARY_PROFILE \\"
+  echo "       --apple-id you@example.com --team-id YOURTEAMID"
+fi
+
+rm -rf "$WORK"
+
+echo "▶ Verifying DMG mounts…"
+MOUNT_OUT=$(hdiutil attach "$DMG" -nobrowse -readonly)
+MOUNT_POINT=$(echo "$MOUNT_OUT" | grep -o '/Volumes/.*' | tail -1)
+if [ ! -d "$MOUNT_POINT/Whisper Pro.app" ]; then
+  echo "❌ App missing from mounted DMG"
+  hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true
+  exit 1
+fi
+hdiutil detach "$MOUNT_POINT" >/dev/null
+
+SIZE=$(du -h "$DMG" | cut -f1)
+echo ""
+echo "✅ DMG ready: $DMG ($SIZE)"

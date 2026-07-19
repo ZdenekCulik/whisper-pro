@@ -60,6 +60,9 @@ struct WpmComparisonB: View {
 }
 
 /// Mode-panel alternative (2): when in the day you dictate most.
+/// Styled after native macOS charts (Screen Time, Battery in System Settings):
+/// small-radius bars, a muted track for empty hours, subtle gridlines and a
+/// baseline, small secondary-color axis labels in 24h form (00, 06, 12, 18).
 struct InsightTimeOfDay: View {
     let hours: [InsightsData.TrendPoint]
     var accent: Color
@@ -69,36 +72,52 @@ struct InsightTimeOfDay: View {
         hours.max { $0.value < $1.value }?.index ?? 12
     }
 
+    private var maxValue: Double {
+        hours.map(\.value).max() ?? 0
+    }
+
+    private func axisLabel(_ hour: Int) -> String {
+        String(format: "%02d", hour)
+    }
+
     private func clockLabel(_ hour: Int) -> String {
         let h12 = hour % 12 == 0 ? 12 : hour % 12
         return "\(h12) \(hour < 12 ? "AM" : "PM")"
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Chart(hours) { point in
-                BarMark(
-                    x: .value("hour", point.index),
-                    y: .value("words", point.value),
-                    width: .fixed(9)
-                )
-                .clipShape(Capsule())
-                .foregroundStyle(point.index == peakHour ? accent : accent.opacity(0.3))
+        Chart(hours) { point in
+            BarMark(
+                x: .value("hour", point.index),
+                y: .value("words", point.value),
+                width: .fixed(7)
+            )
+            .cornerRadius(2.5)
+            .foregroundStyle(
+                point.value > 0
+                    ? accent.opacity(point.index == peakHour ? 0.95 : 0.42)
+                    : theme.resolvedSecondaryText.opacity(0.12)
+            )
+        }
+        .chartYScale(domain: 0...max(maxValue, 1))
+        .chartYAxis {
+            AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { _ in
+                AxisGridLine().foregroundStyle(theme.resolvedBorder.opacity(0.28))
             }
-            .chartYAxis(.hidden)
-            .chartXAxis {
-                AxisMarks(values: [0, 6, 12, 18, 23]) { value in
-                    AxisValueLabel {
-                        if let hour = value.as(Int.self) {
-                            Text(clockLabel(hour))
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundColor(theme.resolvedSecondaryText)
-                        }
+        }
+        .chartXAxis {
+            AxisMarks(values: [0, 6, 12, 18]) { value in
+                AxisGridLine().foregroundStyle(theme.resolvedBorder.opacity(0.5))
+                AxisValueLabel {
+                    if let hour = value.as(Int.self) {
+                        Text(axisLabel(hour))
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(theme.resolvedSecondaryText)
                     }
                 }
             }
-            .frame(height: 104)
         }
+        .frame(height: 104)
         .help("You dictate most around \(clockLabel(peakHour))")
     }
 }

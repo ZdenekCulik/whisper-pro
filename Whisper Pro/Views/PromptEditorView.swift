@@ -158,6 +158,7 @@ struct PromptEditorView: View {
                 }
             }
             .toggleStyle(.switch)
+            .controlSize(.small)
 
             Spacer(minLength: 12)
         }

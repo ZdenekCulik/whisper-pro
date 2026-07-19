@@ -1,14 +1,41 @@
 import Foundation
 import SwiftData
 
+/// Caches the last successfully loaded `InsightsData` for the lifetime of the app
+/// process. Dashboard/Stats views get torn down and rebuilt every time you switch
+/// tabs (their `@State` resets to nil), which used to make the hero card flash an
+/// empty state on every visit while `InsightsLoader.load` re-ran its full scan.
+/// Seeding fresh view state from this cache means the last known numbers stay on
+/// screen until the new load actually completes.
+final class InsightsDataCache: @unchecked Sendable {
+    static let shared = InsightsDataCache()
+
+    private let lock = NSLock()
+    private var data: InsightsData?
+
+    private init() {}
+
+    func current() -> InsightsData? {
+        lock.lock()
+        defer { lock.unlock() }
+        return data
+    }
+
+    func update(_ data: InsightsData) {
+        lock.lock()
+        self.data = data
+        lock.unlock()
+    }
+}
+
 /// Aggregates stored `SessionMetric` rows into the `InsightsData` the panel renders.
 /// Runs off the main actor over a background context, iterating rows once.
 enum InsightsLoader {
     /// Whisper Pro itself — never counts as an app you "dictate into".
     /// The app ships under the original VoiceInk bundle id, so filter that.
     private static let selfBundleIds: Set<String> = [
-        "com.prakashjoshipax.VoiceInk",
-        "com.prakashjoshipax.WhisperPro"
+        "com.prakashjoshipax.voiceink",
+        "com.prakashjoshipax.whisperpro"
     ]
     private static let dayGridLength = 17 * 7
     private static let weeklyTrendCount = 12
@@ -73,7 +100,9 @@ enum InsightsLoader {
                     wordsPerMonth[monthKey, default: 0] += metric.wordCount
                     durationPerMonth[monthKey, default: 0] += metric.audioDuration
 
-                    if let name = metric.appName, !name.isEmpty, !selfBundleIds.contains(metric.appBundleId ?? "") {
+                    if let name = metric.appName,
+                       !name.isEmpty,
+                       !selfBundleIds.contains((metric.appBundleId ?? "").lowercased()) {
                         let existing = appCounts[name]
                         appCounts[name] = ((existing?.count ?? 0) + 1, metric.appBundleId)
                     }
@@ -166,12 +195,21 @@ enum InsightsLoader {
                 return WordsSeriesPoint(date: m, value: Double(wordsPerMonth[m] ?? 0), duration: durationPerMonth[m] ?? 0)
             }
 
+            // All time stays daily: the first bar is the first day Whisper Pro
+            // recorded a session, and every calendar day through today gets a bar.
+            // Explicit zero days preserve honest spacing between active days.
             var totalSeries: [WordsSeriesPoint] = []
-            if let earliest = wordsPerMonth.keys.min() {
+            if let earliest = wordsPerDay.keys.min() {
                 var cursor = earliest
-                while cursor <= currentMonthStart {
-                    totalSeries.append(WordsSeriesPoint(date: cursor, value: Double(wordsPerMonth[cursor] ?? 0), duration: durationPerMonth[cursor] ?? 0))
-                    guard let next = calendar.date(byAdding: .month, value: 1, to: cursor) else { break }
+                while cursor <= today {
+                    totalSeries.append(
+                        WordsSeriesPoint(
+                            date: cursor,
+                            value: Double(wordsPerDay[cursor] ?? 0),
+                            duration: durationPerDay[cursor] ?? 0
+                        )
+                    )
+                    guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
                     cursor = next
                 }
             }
@@ -237,18 +275,9 @@ enum InsightsLoader {
                 return WordsSeriesPoint(date: m, value: Double(typedWordsPerMonth[m] ?? 0), duration: 0)
             }
 
-            // Total range: align the typed series to the SAME month grid the blue
-            // total series uses, so the x-axes match. Fall back to typed months if
-            // the blue series produced none.
-            var typedTotalSeries: [WordsSeriesPoint] = []
-            let totalEarliest = wordsPerMonth.keys.min() ?? typedWordsPerMonth.keys.min()
-            if let earliest = totalEarliest {
-                var cursor = earliest
-                while cursor <= currentMonthStart {
-                    typedTotalSeries.append(WordsSeriesPoint(date: cursor, value: Double(typedWordsPerMonth[cursor] ?? 0), duration: 0))
-                    guard let next = calendar.date(byAdding: .month, value: 1, to: cursor) else { break }
-                    cursor = next
-                }
+            // Align typed totals to the exact daily grid of the dictation series.
+            let typedTotalSeries = totalSeries.map {
+                WordsSeriesPoint(date: $0.date, value: Double(typedWordsPerDay[$0.date] ?? 0), duration: 0)
             }
 
             let typedWordsByRange: [WordsRange: [WordsSeriesPoint]] = [

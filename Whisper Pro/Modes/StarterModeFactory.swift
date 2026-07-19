@@ -2,8 +2,6 @@ import AppKit
 import Foundation
 
 enum StarterModeFactory {
-    static let transcriptionModelName = "parakeet-tdt-0.6b-v3"
-
     static func install(
         kinds: [StarterModeKind],
         provider: AIProvider,
@@ -71,9 +69,12 @@ enum StarterModeFactory {
             triggerGroups: triggerGroups(for: template.kind, installedApps: installedApps),
             isAIEnhancementEnabled: template.usesAIEnhancement,
             selectedPrompt: template.promptId?.uuidString,
-            selectedTranscriptionModelName: transcriptionModelName,
+            // Transcription model and language are deliberately NOT pinned per-mode —
+            // the global Settings (AI Models tab + language chips) drive them, so a
+            // fresh install keeps whatever onboarding set up (Soniox V5).
+            selectedTranscriptionModelName: nil,
             isRealtimeTranscriptionEnabled: true,
-            selectedLanguage: "en",
+            selectedLanguage: nil,
             useClipboardContext: template.kind == .email,
             useSelectedTextContext: template.useSelectedTextContext,
             useScreenCapture: template.useScreenCapture,

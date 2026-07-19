@@ -2,10 +2,10 @@ import Foundation
 import SwiftData
 import LLMkit
 
-/// Soniox streaming provider wrapping `LLMkit.SonioxStreamingClient`.
+/// Soniox streaming provider wrapping the in-app `SonioxRealtimeClient`.
 final class SonioxStreamingProvider: StreamingTranscriptionProvider {
 
-    private let client = LLMkit.SonioxStreamingClient()
+    private let client = SonioxRealtimeClient()
     private var eventsContinuation: AsyncStream<StreamingTranscriptionEvent>.Continuation?
     private var forwardingTask: Task<Void, Never>?
     private let modelContext: ModelContext

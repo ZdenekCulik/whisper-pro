@@ -40,6 +40,12 @@ final class OnboardingCoordinator: ObservableObject {
         }
     }
 
+    @Published var hasSkippedSonioxSetup: Bool {
+        didSet {
+            defaults.set(hasSkippedSonioxSetup, forKey: OnboardingStorageKeys.skippedSonioxSetup)
+        }
+    }
+
     @Published var permissionStatuses: [OnboardingPermissionKind: OnboardingPermissionStatus] = [:]
     @Published var isSelectedAPIProviderVerified = false
     @Published var isShowingSkipAPISetupWarning = false
@@ -62,6 +68,7 @@ final class OnboardingCoordinator: ObservableObject {
         self.experienceStepIndex = defaults.integer(forKey: OnboardingStorageKeys.experienceIndex)
         self.storedOnboardingAIProvider = defaults.string(forKey: OnboardingStorageKeys.aiProvider) ?? AIProvider.groq.rawValue
         self.hasSkippedAPISetup = defaults.bool(forKey: OnboardingStorageKeys.skippedAPISetup)
+        self.hasSkippedSonioxSetup = defaults.bool(forKey: OnboardingStorageKeys.skippedSonioxSetup)
     }
 
     deinit {
@@ -93,6 +100,10 @@ final class OnboardingCoordinator: ObservableObject {
             defaults.selectedAudioDeviceUID != nil
     }
 
+    var hasSonioxAPIKey: Bool {
+        APIKeyManager.shared.hasAPIKey(forProvider: CloudProviderRegistry.provider(for: .soniox)?.providerKey ?? "Soniox")
+    }
+
     var currentStepNumber: Int {
         if stage == .experience {
             return experienceStepNumber(for: normalizedExperienceStepIndex)
@@ -114,7 +125,7 @@ final class OnboardingCoordinator: ObservableObject {
     }
 
     var totalStepCount: Int {
-        OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 2
+        OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 1
     }
 
     var experienceStep: OnboardingExperienceStep {
@@ -301,8 +312,7 @@ final class OnboardingCoordinator: ObservableObject {
     func isReadyForExperience(isTranscriptionModelDownloaded: Bool) -> Bool {
         requiredPermissionsGranted &&
             hasSelectedOnboardingMicrophone &&
-            isTranscriptionModelDownloaded &&
-            (isSelectedAPIProviderVerified || hasSkippedAPISetup)
+            (hasSonioxAPIKey || hasSkippedSonioxSetup)
     }
 
     func isCurrentExperienceReady(isTranscriptionModelDownloaded: Bool) -> Bool {
@@ -320,6 +330,7 @@ enum OnboardingStorageKeys {
     static let experienceIndex = "onboardingExperienceIndex"
     static let aiProvider = "onboardingAIProvider"
     static let skippedAPISetup = "onboardingSkippedAPISetup"
+    static let skippedSonioxSetup = "onboardingSkippedSonioxSetup"
 
     static let onboardingKeys = [
         stage,
@@ -327,6 +338,7 @@ enum OnboardingStorageKeys {
         requestedScreenRecording,
         aiProvider,
         skippedAPISetup,
+        skippedSonioxSetup,
         experienceIndex,
         "onboardingStarterModeIndex"
     ]

@@ -124,38 +124,28 @@ private struct ShortcutVisualization: View {
     }
 }
 
+/// Native-looking key cap, modeled on System Settings → Keyboard: a small subtle
+/// rounded rect that adapts to light/dark instead of a solid white/black card.
 private struct ShortcutKeyCap: View {
     let title: String
     let isRecording: Bool
 
     var body: some View {
         Text(title)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
             .lineLimit(1)
             .minimumScaleFactor(0.75)
-            .foregroundStyle(foregroundColor)
+            .foregroundStyle(isRecording ? AppTheme.Accent.strong : AppTheme.Text.secondary)
             .padding(.horizontal, 5)
             .frame(minHeight: 18)
             .background {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(backgroundColor)
+                    .fill(isRecording ? AppTheme.Accent.fillSubtle : AppTheme.Surface.controlActive)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(borderColor, lineWidth: 1)
+                    .stroke(isRecording ? AppTheme.Accent.border : AppTheme.Border.subtle, lineWidth: 1)
             }
-    }
-
-    private var foregroundColor: Color {
-        Color(NSColor.textBackgroundColor)
-    }
-
-    private var backgroundColor: Color {
-        Color(NSColor.labelColor)
-    }
-
-    private var borderColor: Color {
-        isRecording ? AppTheme.Accent.foreground : foregroundColor.opacity(0.28)
     }
 }
 

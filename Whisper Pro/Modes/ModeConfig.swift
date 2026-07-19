@@ -270,6 +270,9 @@ class ModeManager: ObservableObject {
         } else {
             activeConfiguration = nil
         }
+
+        ensureDefaultConfigurationExists()
+        migrateToGlobalTranscriptionDefaultsIfNeeded()
     }
 
     private func loadConfigurations() {

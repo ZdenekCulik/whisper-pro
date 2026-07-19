@@ -22,16 +22,6 @@ extension ModeManager {
             var config = configurations[index]
             var changedConfig = false
 
-            if config.selectedTranscriptionModelName == nil {
-                config.selectedTranscriptionModelName = UserDefaults.standard.string(forKey: "CurrentTranscriptionModel")
-                changedConfig = true
-            }
-
-            if config.selectedLanguage == nil {
-                config.selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
-                changedConfig = true
-            }
-
             if config.selectedAIProvider == nil {
                 config.selectedAIProvider = UserDefaults.standard.string(forKey: "selectedAIProvider")
                 changedConfig = true
@@ -60,6 +50,58 @@ extension ModeManager {
 
         migrateLegacyShortcutStorageIfNeeded()
     }
+
+    /// Safety net for the rare case where no mode configuration exists at all (e.g. a state
+    /// before onboarding's StarterModeFactory has run). Real onboarded users already have a
+    /// "Dictation" default mode from StarterModeFactory, so this normally never fires.
+    func ensureDefaultConfigurationExists() {
+        guard configurations.isEmpty else { return }
+
+        let dictationMode = ModeConfig(
+            name: "Dictation",
+            isAIEnhancementEnabled: false,
+            selectedTranscriptionModelName: "stt-async-v5",
+            isRealtimeTranscriptionEnabled: true,
+            useClipboardContext: false,
+            useSelectedTextContext: true,
+            useScreenCapture: false,
+            outputMode: .paste,
+            isEnabled: true,
+            isDefault: true
+        )
+
+        configurations = [dictationMode]
+        saveConfigurations()
+    }
+
+    /// One-time migration: with the Modes UI hidden, the global AI Models tab / Settings
+    /// language chips must become authoritative. The runtime resolver already falls back to
+    /// those globals whenever a mode's selectedTranscriptionModelName/selectedLanguage are nil
+    /// (see ModeRuntimeResolver), so this only needs to: (1) copy whatever model the current
+    /// default/active mode was pinned to into the global "CurrentTranscriptionModel" key, so
+    /// existing dictation behavior doesn't change the moment this ships, then (2) clear the
+    /// mode's own pin so the global setting drives it from now on. Every other field of the
+    /// mode (AI enhancement config, output mode, isRealtimeTranscriptionEnabled, etc.) is left
+    /// untouched. Guarded by a UserDefaults flag so it only ever runs once.
+    func migrateToGlobalTranscriptionDefaultsIfNeeded() {
+        let defaults = UserDefaults.standard
+        let migrationKey = "hasMigratedModeToGlobalDefaultsV1"
+        guard !defaults.bool(forKey: migrationKey) else { return }
+        defaults.set(true, forKey: migrationKey)
+
+        guard var mode = currentEffectiveConfiguration,
+              let pinnedModelName = mode.selectedTranscriptionModelName else { return }
+
+        defaults.set(pinnedModelName, forKey: "CurrentTranscriptionModel")
+        mode.selectedTranscriptionModelName = nil
+        mode.selectedLanguage = nil
+        updateConfiguration(mode)
+
+        if activeConfiguration?.id == mode.id {
+            activeConfiguration = mode
+        }
+    }
+
     private func migrateLegacyShortcutStorageIfNeeded() {
         let defaults = UserDefaults.standard
 

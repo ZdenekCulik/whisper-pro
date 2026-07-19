@@ -101,22 +101,17 @@ final class CoreAudioRecorder: @unchecked Sendable {
 
         logDeviceDetails(deviceID: deviceID)
 
-        // Prefer VoiceProcessingIO for built-in echo cancellation + noise suppression
-        // (stops the mic from picking up the Mac's own speaker output). If anything in
-        // that pipeline fails, fall back to the plain HAL input that always worked.
+        // Plain HAL input: builds instantly and stays prepared between recordings, so
+        // dictation starts capture immediately (VPIO took ~1.7s to rebuild on EVERY
+        // start, losing the first words — it can't stay warm because it ducks system
+        // audio while initialized). Echo cancellation isn't needed: the app mutes
+        // system audio during recording anyway.
         do {
-            try setupAudioPipeline(deviceID: deviceID, voiceProcessing: true)
-            logger.notice("🎙️ Capture pipeline: VoiceProcessingIO (echo cancellation ON)")
+            try setupAudioPipeline(deviceID: deviceID, voiceProcessing: false)
+            logger.notice("🎙️ Capture pipeline: HAL input (no echo cancellation)")
         } catch {
-            logger.warning("🎙️ VoiceProcessingIO setup failed (\(error.localizedDescription, privacy: .public)); falling back to HAL input")
             teardownPreparedAudioUnit()
-            do {
-                try setupAudioPipeline(deviceID: deviceID, voiceProcessing: false)
-                logger.notice("🎙️ Capture pipeline: HAL input (no echo cancellation)")
-            } catch {
-                teardownPreparedAudioUnit()
-                throw error
-            }
+            throw error
         }
     }
 

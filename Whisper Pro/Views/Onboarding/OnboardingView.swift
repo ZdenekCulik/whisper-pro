@@ -6,6 +6,7 @@ struct OnboardingView: View {
     @EnvironmentObject var fluidAudioModelManager: FluidAudioModelManager
     @EnvironmentObject var aiService: AIService
     @EnvironmentObject var enhancementService: AIEnhancementService
+    @EnvironmentObject var transcriptionModelManager: TranscriptionModelManager
     @StateObject private var coordinator = OnboardingCoordinator()
     @State private var isShowingSkipOnboardingConfirmation = false
 
@@ -48,28 +49,28 @@ struct OnboardingView: View {
                     )
                         .transition(.opacity)
                 case .model:
-                    OnboardingModelScreen(
+                    OnboardingSonioxSetupScreen(
                         contentMaxWidth: contentMaxWidth,
-                        model: coordinator.requiredTranscriptionModel,
-                        isDownloaded: isTranscriptionModelDownloaded,
-                        isDownloading: coordinator.requiredTranscriptionModel.map {
-                            fluidAudioModelManager.isFluidAudioModelDownloading($0)
-                        } ?? false,
-                        downloadStatus: coordinator.requiredTranscriptionModel.flatMap {
-                            fluidAudioModelManager.downloadStatus(for: $0)
-                        },
-                        onDownload: {
-                            coordinator.flow.downloadTranscriptionModel(
-                                $0,
-                                modelManager: fluidAudioModelManager
-                            )
-                        },
                         onBack: coordinator.flow.goToMicrophoneStep,
                         onContinue: {
-                            coordinator.flow.goToAPIStep(
+                            coordinator.flow.continueFromModelStep(
                                 isTranscriptionModelDownloaded: isTranscriptionModelDownloaded,
-                                aiService: aiService
+                                enhancementService: enhancementService
                             )
+                        },
+                        onSkipConfirmed: {
+                            coordinator.flow.skipSonioxSetupAndContinue(
+                                isTranscriptionModelDownloaded: isTranscriptionModelDownloaded,
+                                enhancementService: enhancementService
+                            )
+                        },
+                        onAppear: {
+                            if let model = coordinator.requiredTranscriptionModel {
+                                coordinator.flow.downloadTranscriptionModel(
+                                    model,
+                                    modelManager: fluidAudioModelManager
+                                )
+                            }
                         }
                     )
                         .transition(.opacity)
@@ -157,9 +158,11 @@ struct OnboardingView: View {
                             )
                         },
                         onContinue: {
-                            coordinator.flow.goToLicenseStep(
+                            coordinator.flow.completeOnboarding(
                                 isTranscriptionModelDownloaded: isTranscriptionModelDownloaded
-                            )
+                            ) {
+                                hasCompletedOnboardingV2 = true
+                            }
                         }
                     )
                         .transition(.opacity)

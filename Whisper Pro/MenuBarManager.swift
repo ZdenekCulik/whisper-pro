@@ -14,6 +14,10 @@ class MenuBarManager: ObservableObject {
 
     private var modelContainer: ModelContainer?
     private var engine: WhisperProEngine?
+    // Bumped on every explicit toggle so the delayed `windowDidClose` check below can
+    // tell whether a fresh toggle already decided the policy since it was scheduled —
+    // see windowDidClose for the race this closes.
+    private var activationGeneration = 0
 
     init() {
         self.isMenuBarOnly = UserDefaults.standard.bool(forKey: "IsMenuBarOnly")
@@ -33,13 +37,21 @@ class MenuBarManager: ObservableObject {
 
     @objc private func windowDidClose(_ notification: Notification) {
         guard isMenuBarOnly else { return }
+        let generationAtSchedule = activationGeneration
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self else { return }
+            // A fresh toggle (either direction) since this closure was scheduled
+            // already decided the policy — applying this stale check on top of it is
+            // exactly the race that made "Hide Dock Icon" flaky. Re-check both the
+            // generation and the current setting before touching the policy.
+            guard self.activationGeneration == generationAtSchedule, self.isMenuBarOnly else { return }
+
             let hasVisibleWindows = NSApplication.shared.windows.contains {
                 $0.isVisible && $0.level == .normal && !$0.styleMask.contains(.nonactivatingPanel)
             }
             if !hasVisibleWindows && NSApplication.shared.activationPolicy() != .accessory {
-                self?.logger.notice("windowDidClose: no visible windows, switching to .accessory policy")
+                self.logger.notice("windowDidClose: no visible windows, switching to .accessory policy")
                 NSApplication.shared.setActivationPolicy(.accessory)
             }
         }
@@ -69,6 +81,7 @@ class MenuBarManager: ObservableObject {
     private func updateAppActivationPolicy() {
         let applyPolicy = { [weak self] in
             guard let self else { return }
+            self.activationGeneration &+= 1
             let application = NSApplication.shared
             if self.isMenuBarOnly {
                 self.logger.notice("updateAppActivationPolicy: switching to .accessory (dock icon hidden)")
@@ -76,8 +89,15 @@ class MenuBarManager: ObservableObject {
                 WindowManager.shared.hideMainWindow()
             } else {
                 self.logger.notice("updateAppActivationPolicy: switching to .regular (dock icon visible)")
+                // Order matters: activationPolicy must flip to .regular before activate(),
+                // and activate() must run even if there's currently no main window to
+                // show — otherwise the dock icon can reappear without the app actually
+                // becoming frontmost/focusable, which read as "the toggle doesn't work".
                 application.setActivationPolicy(.regular)
-                WindowManager.shared.showMainWindow()
+                application.activate(ignoringOtherApps: true)
+                if WindowManager.shared.showMainWindow() == nil {
+                    self.logger.error("updateAppActivationPolicy: no main window available to show")
+                }
             }
         }
 

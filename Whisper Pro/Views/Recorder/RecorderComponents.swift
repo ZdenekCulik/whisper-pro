@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 // MARK: - Icon Toggle Button
 
@@ -317,40 +318,68 @@ struct LiveTranscriptView: View {
         self.partial = ""
     }
 
+    private let viewportHeight: CGFloat = 56
+    private static let bottomAnchorID = "liveTranscriptBottom"
+
+    // Spoken slash commands ("slash clear" → "/clear") get tinted the accent color
+    // as they appear, matching tokens like /clear, /compact, /figma:figma-use.
+    private static let slashCommandRegex = try? NSRegularExpression(
+        pattern: "(?<=^|\\s)/[A-Za-z0-9][A-Za-z0-9:_-]*"
+    )
+
     // No artificial spacer between committed and partial — the provider already
     // embeds spacing, and inserting one here split the last word ("b ug" vs "bug").
     private var styledText: Text {
-        let committedText = Text(committed).foregroundColor(.white)
+        let committedText = styledRun(committed, baseColor: .white, commandColor: AppTheme.Accent.primary)
         guard !partial.isEmpty else { return committedText }
-        return committedText + Text(partial).foregroundColor(.white.opacity(0.4))
+        return committedText + styledRun(partial, baseColor: .white.opacity(0.55), commandColor: AppTheme.Accent.primary.opacity(0.85))
+    }
+
+    private func styledRun(_ string: String, baseColor: Color, commandColor: Color) -> Text {
+        guard !string.isEmpty else { return Text("") }
+        var attributed = AttributedString(string)
+        attributed.foregroundColor = baseColor
+
+        if let regex = Self.slashCommandRegex {
+            let nsRange = NSRange(string.startIndex..., in: string)
+            for match in regex.matches(in: string, range: nsRange) {
+                guard let attributedRange = Range(match.range, in: attributed) else { continue }
+                attributed[attributedRange].foregroundColor = commandColor
+            }
+        }
+
+        return Text(attributed)
     }
 
     var body: some View {
         ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: false) {
+            ScrollView(.vertical) {
                 styledText
                     .font(.system(size: 12))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
-                    .id("bottom")
+                    // Text content itself (new words, opacity recoloring on commit)
+                    // never animates — no offset/height math left to fight it.
+                    .transaction { $0.disablesAnimations = true }
+                Color.clear.frame(height: 0).id(Self.bottomAnchorID)
             }
-            .frame(height: 56)
-            .mask(
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0.0),
-                        .init(color: .black, location: 0.18),
-                        .init(color: .black, location: 1.0)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .onChange(of: committed) { proxy.scrollTo("bottom", anchor: .bottom) }
-            .onChange(of: partial) { proxy.scrollTo("bottom", anchor: .bottom) }
+            .scrollIndicators(.hidden)
+            .frame(height: viewportHeight, alignment: .top)
+            .onChange(of: committed) { scrollToBottom(proxy) }
+            .onChange(of: partial) { scrollToBottom(proxy) }
         }
-        .transaction { $0.disablesAnimations = true }
+    }
+
+    // Auto-stick to the newest text. No animation on the scroll itself — combined
+    // with disabling animation on the text above, this is what keeps already-written
+    // lines from visibly jumping as the streaming tail settles.
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+        }
     }
 }
 

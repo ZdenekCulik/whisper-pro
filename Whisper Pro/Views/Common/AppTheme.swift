@@ -19,6 +19,8 @@ enum AppTheme {
         static let subtle = Color.primary.opacity(0.045)
         static let controlActive = Color.primary.opacity(0.075)
         static let control = Color(nsColor: .controlBackgroundColor)
+        /// Quiet neutral fill for small native-style tags/chips (e.g. Finder/Reminders tags).
+        static let quaternaryFill = Color(nsColor: .quaternarySystemFill)
         static let window = Color(nsColor: .windowBackgroundColor)
         static let sidePanelOverlay = Color(nsColor: .windowBackgroundColor).opacity(0.50)
         static let clear = Color.clear
@@ -70,7 +72,6 @@ enum AppTheme {
         static let models = Color(hex: "#A87954")
         static let audio = Color(hex: "#8B8B91")
         static let dictionary = Color(hex: "#4B8AF0")
-        static let transcribeAudio = Color(hex: "#D55F52")
         static let fallback = Color(hex: "#8B8B91")
         static let license = Color(hex: "#54B56A")
     }

@@ -10,7 +10,10 @@ private final class AudioChunkSource: @unchecked Sendable {
     }
 
     private static let targetChunkBytes = 3_200 // 100ms of 16kHz PCM16 mono
-    private static let maxQueuedChunks = 10
+    // Must cover a slow WebSocket connect (seconds of audio arrive before the send
+    // loop starts) plus network hiccups. Dropping here forces the slow whole-file
+    // batch fallback at stop, so the cap is generous: 60s of audio ≈ 1.9 MB.
+    private static let maxQueuedChunks = 600
 
     let stream: AsyncStream<Void>
     private let continuation: AsyncStream<Void>.Continuation
@@ -429,6 +432,12 @@ class StreamingTranscriptionService {
                             self.firstPartialLogged = true
                             self.logger.notice("Streaming first partial event chars=\(text.count, privacy: .public)")
                         }
+                        if self.state == .committing {
+                            // The server keeps transcribing the tail audio after our
+                            // finalize request. Track it so a commit-ack timeout still
+                            // delivers the words spoken right before stop.
+                            self.lastSegmentPartial = text
+                        }
                         if self.state == .streaming {
                             // Already-committed whole segments are always stable (solid).
                             let committedPrefix = self.committedTextCache
@@ -464,9 +473,13 @@ class StreamingTranscriptionService {
     }
 
     /// How long to wait for the server's final-commit ack before delivering the text we
-    /// already have. Kept short: after Enter the app already holds the full live
-    /// transcript, so it should paste optimistically instead of stalling on the network.
-    private static let finalCommitTimeout: UInt64 = 600_000_000 // 0.6s
+    /// already have. The server needs a moment to finalize the tail audio after commit —
+    /// too short a bound truncated the last words when server finalization latency spiked
+    /// (observed 0.17s-2s+ in production logs). This is a worst-case ceiling, not a fixed
+    /// delay: `waitForFinalCommit` races the ack against this timeout and returns the
+    /// instant the ack arrives, so the normal case (ack in well under a second) is
+    /// unaffected — only a genuinely slow finalize eats into the full 6s.
+    private static let finalCommitTimeout: UInt64 = 6_000_000_000 // 6s
 
     /// Waits (briefly) for the server to acknowledge our explicit commit, then returns the
     /// best transcript available. On timeout it falls back to the locally-known text
@@ -500,8 +513,13 @@ class StreamingTranscriptionService {
         // When the server acked in time, committedSegments holds the finalized text.
         // Otherwise include the last partial tail so we don't lose the final word(s).
         var parts = committedSegments
-        if !receivedInTime, !lastSegmentPartial.isEmpty {
-            parts.append(lastSegmentPartial)
+        if !receivedInTime {
+            if !lastSegmentPartial.isEmpty {
+                parts.append(lastSegmentPartial)
+            }
+            let fallbackChars = parts.joined(separator: " ").count
+            let timeoutSeconds = Double(Self.finalCommitTimeout) / 1_000_000_000
+            logger.warning("Streaming commit ack TIMEOUT after \(timeoutSeconds, format: .fixed(precision: 1), privacy: .public)s — delivering partial fallback chars=\(fallbackChars, privacy: .public)")
         }
         if parts.isEmpty {
             logger.warning("No transcript received from streaming")

@@ -30,6 +30,8 @@ struct EnhancementPromptPopover: View {
                         refreshSelectedPrompt()
                     }
                 ))
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
                     .foregroundColor(.white.opacity(0.9))
                     .font(.headline)
                     .lineLimit(1)

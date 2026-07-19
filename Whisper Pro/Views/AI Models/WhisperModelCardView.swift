@@ -119,11 +119,11 @@ struct WhisperModelCardView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(
+                    .glassSurface(in: Capsule(), tint: GlassSurface.accentButtonTint) {
                         Capsule()
                             .fill(AppTheme.Accent.primary)
                             .shadow(color: AppTheme.Accent.shadow, radius: 2, x: 0, y: 1)
-                    )
+                    }
                 }
                 .buttonStyle(.plain)
                 .disabled(isDownloading)
