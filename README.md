@@ -30,7 +30,11 @@ provider (e.g. Soniox), with optional AI cleanup of the text.
 
 ## Install
 
-Download the signed `.dmg` from
+```bash
+brew install --cask zdenekculik/tap/whisper-pro
+```
+
+Or download the signed `.dmg` from
 [Releases](https://github.com/ZdenekCulik/whisper-pro/releases/latest), open it and drag
 Whisper Pro to Applications.
 

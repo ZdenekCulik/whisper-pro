@@ -1,14 +1,14 @@
 #!/bin/bash
 # Build a distributable DMG of Whisper Pro: Release build, ad-hoc/personal-cert
 # signed with a minimal (no iCloud, no keychain-access-groups, no aps-environment)
-# entitlements set — none of which need a provisioning profile. Meant for sharing
+# entitlements set, none of which need a provisioning profile. Meant for sharing
 # with someone outside this Mac, e.g. "make dmg".
 #
 # Without a paid "Developer ID Application" cert + notarization (override
 # DIST_IDENTITY in Makefile.local if you have one), the friend has to right-click
 # → Open (or System Settings → Privacy & Security → "Open Anyway") on first launch.
 #
-# Does NOT touch /Applications and does NOT kill the running app — this only
+# Does NOT touch /Applications and does NOT kill the running app, this only
 # builds into its own derived-data dir and packages a DMG in dist/.
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
@@ -59,15 +59,34 @@ echo "▶ Verifying signature…"
 codesign --verify --deep --strict "$WORK/Whisper Pro.app"
 codesign -d --entitlements - "$WORK/Whisper Pro.app" 2>/dev/null | tail -n +2
 
+if xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
+  NOTARIZE=1
+else
+  NOTARIZE=0
+fi
+
+# Notarize and staple the .app itself, not just the DMG. Homebrew casks copy the
+# app out of the DMG, so a ticket stapled only to the DMG is lost and the first
+# launch then needs a working internet connection to pass Gatekeeper.
+if [ "$NOTARIZE" = "1" ]; then
+  echo "▶ Notarizing the app…"
+  APP_ZIP="$DERIVED_DATA/WhisperPro-app.zip"
+  rm -f "$APP_ZIP"
+  ditto -c -k --keepParent "$WORK/Whisper Pro.app" "$APP_ZIP"
+  xcrun notarytool submit "$APP_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+  xcrun stapler staple "$WORK/Whisper Pro.app"
+  rm -f "$APP_ZIP"
+fi
+
 ln -s /Applications "$WORK/Applications"
 cat > "$WORK/READ ME.txt" <<'EOF'
-Whisper Pro — install
+Whisper Pro, install
 
 1. Drag "Whisper Pro" into the Applications folder.
-2. If macOS blocks the first launch: System Settings → Privacy & Security →
-   scroll down → "Open Anyway".
+2. If macOS blocks the first launch: System Settings > Privacy & Security >
+   scroll down > "Open Anyway".
 3. On first launch the app walks you through connecting Soniox (speech
-   service) — you'll need a free Soniox account + ~$5 credit at
+   service). You'll need a free Soniox account + ~$5 credit at
    https://console.soniox.com
 EOF
 
@@ -78,12 +97,12 @@ rm -f "$DMG"
 echo "▶ Packaging DMG…"
 hdiutil create -volname "Whisper Pro" -srcfolder "$WORK" -ov -format UDZO "$DMG" >/dev/null
 
-if xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
-  echo "▶ Notarizing…"
+if [ "$NOTARIZE" = "1" ]; then
+  echo "▶ Notarizing the DMG…"
   xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
   xcrun stapler staple "$DMG"
 else
-  echo "⚠️  Notarization skipped — no '$NOTARY_PROFILE' keychain profile found."
+  echo "⚠️  Notarization skipped, no '$NOTARY_PROFILE' keychain profile found."
   echo "   One-time setup (needs a paid Apple Developer Program membership +"
   echo "   Developer ID Application cert):"
   echo "     xcrun notarytool store-credentials $NOTARY_PROFILE \\"
