@@ -6,9 +6,18 @@
 //
 
 import Testing
+import Foundation
 @testable import WhisperPro
 
 struct WhisperProTests {
+
+    /// A concrete default here pins every recording to one language and makes the
+    /// Languages chips in Settings do nothing, which is how Czech kept getting
+    /// transcribed as English.
+    @Test func selectedLanguageDefaultsToAuto() async throws {
+        AppDefaults.registerDefaults()
+        #expect(UserDefaults.standard.string(forKey: "SelectedLanguage") == "auto")
+    }
 
     @Test func dashboardHeroVariantsAreNumberedWithoutGaps() async throws {
         let rawValues = DashboardHeroVariant.allCases.map(\.rawValue)

@@ -24,7 +24,10 @@ enum AppDefaults {
             "IsVADEnabled": true,
             "RemovePunctuation": false,
             "LowercaseTranscription": false,
-            "SelectedLanguage": "en",
+            // "auto" is what makes the Languages chips in Settings actually reach the
+            // provider: a concrete code here would pin every recording to that one
+            // language and silently ignore the chips.
+            "SelectedLanguage": "auto",
             "AppendTrailingSpace": true,
             "RecorderType": "mini",
 
