@@ -10,14 +10,15 @@ import Testing
 
 struct WhisperProTests {
 
-    @Test func dashboardHeroVariantsCoverV1ThroughV8() async throws {
-        #expect(DashboardHeroVariant.allCases.map(\.rawValue) == Array(1...8))
-        #expect(DashboardHeroVariant.allCases.map(\.label) == (1...8).map { "V\($0)" })
+    @Test func dashboardHeroVariantsAreNumberedWithoutGaps() async throws {
+        let rawValues = DashboardHeroVariant.allCases.map(\.rawValue)
+        #expect(rawValues == Array(1...rawValues.count))
+        #expect(DashboardHeroVariant.allCases.map(\.label) == rawValues.map { "V\($0)" })
     }
 
-    @Test func dashboardHeroVariantFallsBackToV1ForInvalidStoredValue() async throws {
-        #expect(DashboardHeroVariant(storedValue: 0) == .editorialClaude)
-        #expect(DashboardHeroVariant(storedValue: 99) == .editorialClaude)
+    @Test func dashboardHeroVariantFallsBackToOverviewForInvalidStoredValue() async throws {
+        #expect(DashboardHeroVariant(storedValue: 0) == .overview)
+        #expect(DashboardHeroVariant(storedValue: 99) == .overview)
     }
 
     @MainActor

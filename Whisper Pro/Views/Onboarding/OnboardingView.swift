@@ -37,6 +37,7 @@ struct OnboardingView: View {
                         onQuit: {
                             NSApplication.shared.terminate(nil)
                         },
+                        onRepairAccessibility: coordinator.permissions.repairAccessibility,
                         onRecheck: coordinator.permissions.refreshPermissionStatuses,
                         onContinue: coordinator.flow.goToMicrophoneStep
                     )

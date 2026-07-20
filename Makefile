@@ -4,7 +4,7 @@ WHISPER_CPP_DIR := $(DEPS_DIR)/whisper.cpp
 FRAMEWORK_PATH := $(WHISPER_CPP_DIR)/build-apple/whisper.xcframework
 LOCAL_DERIVED_DATA := $(CURDIR)/.local-build
 
-.PHONY: all clean whisper setup build local signed dmg check healthcheck help dev run
+.PHONY: all clean whisper setup build local signed dmg test check healthcheck help dev run
 
 # Stable signed dev build: signed with your Apple Development cert so macOS
 # permissions (Accessibility, Microphone) survive every rebuild — grant once.
@@ -38,6 +38,24 @@ all: check build
 
 # Development workflow
 dev: build run
+
+# Run the unit + snapshot tests. Must stay on Debug and ad-hoc signing: a Release
+# test host loads whisper.framework with a different Team ID and dies at launch.
+# UI tests are skipped, they drive a second copy of the app and fail whenever
+# your own Whisper Pro is already running.
+test: check setup
+	xcodebuild test -project "Whisper Pro.xcodeproj" -scheme "Whisper Pro" \
+		-configuration Debug -destination 'platform=macOS' \
+		-skip-testing:WhisperProUITests \
+		-derivedDataPath "$(CURDIR)/.local-test-build" \
+		CODE_SIGN_IDENTITY="-" \
+		CODE_SIGN_STYLE=Manual \
+		CODE_SIGNING_REQUIRED=NO \
+		CODE_SIGNING_ALLOWED=YES \
+		DEVELOPMENT_TEAM="" \
+		PROVISIONING_PROFILE_SPECIFIER="" \
+		ENABLE_TESTABILITY=YES \
+		CODE_SIGN_ENTITLEMENTS="$(CURDIR)/Whisper Pro/WhisperPro.local.entitlements"
 
 # Prerequisites
 check:

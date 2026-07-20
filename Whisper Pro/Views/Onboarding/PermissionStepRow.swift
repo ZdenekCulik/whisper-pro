@@ -10,7 +10,7 @@ struct PermissionStepRow: View {
     let actionTitle: String
     let onSelect: () -> Void
     let onAction: () -> Void
-    let onQuit: () -> Void
+    let onHintAction: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -111,19 +111,20 @@ struct PermissionStepRow: View {
     }
 
     private func hintView(_ hint: PermissionStepHint) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(LocalizedStringKey(hint.text))
                 .font(.system(size: 12))
                 .foregroundColor(AppTheme.Text.muted)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if hint.showsQuitAction {
-                Button("Quit") {
-                    onQuit()
+            if let actionTitle = hint.actionTitle {
+                Button(LocalizedStringKey(actionTitle)) {
+                    onHintAction()
                 }
                 .font(.system(size: 12, weight: .semibold))
                 .buttonStyle(.plain)
                 .foregroundColor(AppTheme.Action.secondaryForeground)
+                .fixedSize()
             }
         }
     }
@@ -131,5 +132,5 @@ struct PermissionStepRow: View {
 
 struct PermissionStepHint {
     let text: String
-    let showsQuitAction: Bool
+    let actionTitle: String?
 }

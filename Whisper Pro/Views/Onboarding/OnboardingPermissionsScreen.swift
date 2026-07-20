@@ -13,6 +13,7 @@ struct OnboardingPermissionsScreen: View {
     let onSelect: (OnboardingPermissionKind) -> Void
     let onAction: (OnboardingPermissionKind) -> Void
     let onQuit: () -> Void
+    let onRepairAccessibility: () -> Void
     let onRecheck: () -> Void
     let onContinue: () -> Void
 
@@ -43,13 +44,13 @@ struct OnboardingPermissionsScreen: View {
         switch permission {
         case .accessibility where hasRequestedAccessibility:
             return PermissionStepHint(
-                text: String(localized: "Toggle already on but nothing happens? Select Whisper Pro in the list, remove it with the minus button, then click Allow again."),
-                showsQuitAction: false
+                text: String(localized: "Switch already on but Whisper Pro still says it is off? macOS is holding an outdated entry."),
+                actionTitle: String(localized: "Reset and try again")
             )
         case .screenRecording where hasRequestedScreenRecording:
             return PermissionStepHint(
                 text: String(localized: "Restart Whisper Pro after enabling Screen Recording."),
-                showsQuitAction: true
+                actionTitle: String(localized: "Quit")
             )
         default:
             return nil
@@ -74,7 +75,9 @@ struct OnboardingPermissionsScreen: View {
                     onAction: {
                         onAction(permission)
                     },
-                    onQuit: onQuit
+                    onHintAction: {
+                        permission == .accessibility ? onRepairAccessibility() : onQuit()
+                    }
                 )
             }
         }

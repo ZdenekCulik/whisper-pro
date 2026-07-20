@@ -157,6 +157,28 @@ final class OnboardingPermissionController {
         }
     }
 
+    /// macOS keeps the Accessibility grant tied to the exact code signature it saw
+    /// when the entry was created. Rebuilding or replacing the app changes that
+    /// signature, so the switch in System Settings stays on while the running app
+    /// is not actually trusted, and no amount of toggling fixes it. Dropping our
+    /// own entry lets the next prompt re-create it against the current signature.
+    func repairAccessibility() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        process.arguments = ["reset", "Accessibility", Bundle.main.bundleIdentifier ?? ""]
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            // tccutil is missing or refused: fall through to the normal prompt,
+            // which is no worse than before.
+        }
+
+        refreshPermissionStatuses()
+        requestAccessibility()
+    }
+
     private func requestAccessibility() {
         coordinator.hasRequestedAccessibility = true
         let options: NSDictionary = [
