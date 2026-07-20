@@ -9,6 +9,7 @@ Before you begin, ensure you have:
 - Xcode (latest version recommended)
 - Swift (latest version recommended)
 - Git (for cloning repositories)
+- CMake 3.28.0 or later, needed to build whisper.cpp: `brew install cmake`
 
 ## Quick Start with Makefile (Recommended)
 

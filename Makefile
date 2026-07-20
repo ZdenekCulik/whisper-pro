@@ -45,6 +45,7 @@ check:
 	@command -v git >/dev/null 2>&1 || { echo "git is not installed"; exit 1; }
 	@command -v xcodebuild >/dev/null 2>&1 || { echo "xcodebuild is not installed (need Xcode)"; exit 1; }
 	@command -v swift >/dev/null 2>&1 || { echo "swift is not installed"; exit 1; }
+	@command -v cmake >/dev/null 2>&1 || { echo "cmake is not installed (needed to build whisper.cpp). Run: brew install cmake"; exit 1; }
 	@echo "Prerequisites OK"
 
 healthcheck: check

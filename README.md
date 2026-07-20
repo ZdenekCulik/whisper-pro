@@ -28,9 +28,16 @@ provider (e.g. Soniox), with optional AI cleanup of the text.
 - 📝 **Learns your words**: personal dictionary & replacements
 - 📊 **Live transcript + stats**: hours saved, streaks
 
+## Install
+
+Download the signed `.dmg` from
+[Releases](https://github.com/ZdenekCulik/whisper-pro/releases/latest), open it and drag
+Whisper Pro to Applications.
+
 ## Build from source
 
-Full instructions are in [BUILDING.md](BUILDING.md). Short version:
+Full instructions are in [BUILDING.md](BUILDING.md). You need Xcode and CMake
+(`brew install cmake`). Short version:
 
 ```bash
 git clone https://github.com/ZdenekCulik/whisper-pro.git
