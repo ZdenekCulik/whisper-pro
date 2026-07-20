@@ -119,7 +119,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         self.selectedAIModel = selectedAIModel
         self.selectedTranscriptionModelName = selectedTranscriptionModelName
         self.isRealtimeTranscriptionEnabled = isRealtimeTranscriptionEnabled
-        self.selectedLanguage = selectedLanguage ?? "en"
+        self.selectedLanguage = selectedLanguage
         self.isTextFormattingEnabled = isTextFormattingEnabled
         self.punctuationCleanupMode = punctuationCleanupMode
         self.lowercaseTranscription = lowercaseTranscription
@@ -272,6 +272,7 @@ class ModeManager: ObservableObject {
         }
 
         ensureDefaultConfigurationExists()
+        migrateEnglishPinnedModesToAutoIfNeeded()
         migrateToGlobalTranscriptionDefaultsIfNeeded()
     }
 

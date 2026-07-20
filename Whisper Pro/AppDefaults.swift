@@ -24,9 +24,10 @@ enum AppDefaults {
             "IsVADEnabled": true,
             "RemovePunctuation": false,
             "LowercaseTranscription": false,
-            // "auto" is what makes the Languages chips in Settings actually reach the
-            // provider: a concrete code here would pin every recording to that one
-            // language and silently ignore the chips.
+            // Default only for transcription paths that fall back to
+            // TranscriptionRequestContext.currentDefaults (e.g. file transcription); "auto"
+            // keeps those language-agnostic, a concrete code would pin them to one language.
+            // Live dictation resolves its language from the active mode, not this key.
             "SelectedLanguage": "auto",
             "AppendTrailingSpace": true,
             "RecorderType": "mini",

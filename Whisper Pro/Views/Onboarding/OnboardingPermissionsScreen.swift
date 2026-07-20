@@ -5,7 +5,7 @@ struct OnboardingPermissionsScreen: View {
     let isComplete: Bool
     let activePermission: OnboardingPermissionKind
     let hasRequestedScreenRecording: Bool
-    let hasRequestedAccessibility: Bool
+    let showAccessibilityRepairHint: Bool
     let stepNumber: (OnboardingPermissionKind) -> Int
     let status: (OnboardingPermissionKind) -> OnboardingPermissionStatus
     let isLocked: (OnboardingPermissionKind) -> Bool
@@ -42,7 +42,7 @@ struct OnboardingPermissionsScreen: View {
         guard !status(permission).isGranted else { return nil }
 
         switch permission {
-        case .accessibility where hasRequestedAccessibility:
+        case .accessibility where showAccessibilityRepairHint:
             return PermissionStepHint(
                 text: String(localized: "Switch already on but Whisper Pro still says it is off? macOS is holding an outdated entry."),
                 actionTitle: String(localized: "Reset and try again")

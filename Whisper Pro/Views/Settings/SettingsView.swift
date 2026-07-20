@@ -16,7 +16,10 @@ struct SettingsView: View {
     @State private var cancelRecordingShortcutRecorderResetID = 0
 
     @State private var isRestoreClipboardExpanded = false
-    @State private var preferredLanguageCodes = Set(UserDefaults.standard.preferredLanguageHints)
+    // Ordered, not a Set: the first element is the primary language (see
+    // UserDefaults.preferredLanguageHints), which Soniox now leans on to resolve ambiguous
+    // words, so selection order has to survive a round-trip.
+    @State private var preferredLanguageCodes: [String] = UserDefaults.standard.preferredLanguageHints
     @StateObject private var previewAudioSimulator = FakeSpeechAudioSimulator()
 
     var body: some View {
@@ -117,8 +120,8 @@ struct SettingsView: View {
                 // "+ Add another" on its own row. FlowLayout instead hugs each chip's
                 // real width so this sits like a plain native settings row.
                 FlowLayout(spacing: 8) {
-                    ForEach(selectedLanguages) { language in
-                        selectedLanguageChip(language)
+                    ForEach(Array(selectedLanguages.enumerated()), id: \.element.id) { index, language in
+                        selectedLanguageChip(language, isPrimary: index == 0)
                     }
                     addLanguageMenu
                 }
@@ -289,14 +292,18 @@ struct SettingsView: View {
     ]
 
     private var selectedLanguages: [DictationLanguage] {
-        Self.supportedDictationLanguages.filter { preferredLanguageCodes.contains($0.code) }
+        // Ordered by selection (preferredLanguageCodes), not catalog order, so the primary
+        // language (the first hint) renders first and reads as primary.
+        preferredLanguageCodes.compactMap { code in
+            Self.supportedDictationLanguages.first { $0.code == code }
+        }
     }
 
     private var remainingLanguages: [DictationLanguage] {
         Self.supportedDictationLanguages.filter { !preferredLanguageCodes.contains($0.code) }
     }
 
-    private func selectedLanguageChip(_ language: DictationLanguage) -> some View {
+    private func selectedLanguageChip(_ language: DictationLanguage, isPrimary: Bool) -> some View {
         let canRemove = preferredLanguageCodes.count > 1
 
         return HStack(spacing: 6) {
@@ -305,6 +312,13 @@ struct SettingsView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
                 .foregroundStyle(AppTheme.Text.primary)
+
+            if isPrimary {
+                // The first hint is the primary language Soniox leans on for ambiguous words.
+                Text("Primary")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(AppTheme.Accent.primary)
+            }
 
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) {
@@ -355,17 +369,17 @@ struct SettingsView: View {
 
     private func toggleLanguage(_ code: String) {
         var codes = preferredLanguageCodes
-        if codes.contains(code) {
-            codes.remove(code)
+        if let index = codes.firstIndex(of: code) {
+            codes.remove(at: index)
         } else {
-            codes.insert(code)
+            codes.append(code)
         }
 
         // Never allow an empty selection.
         guard !codes.isEmpty else { return }
 
         preferredLanguageCodes = codes
-        UserDefaults.standard.preferredLanguageHints = Array(codes)
+        UserDefaults.standard.preferredLanguageHints = codes
     }
 }
 

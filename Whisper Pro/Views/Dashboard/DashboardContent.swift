@@ -210,7 +210,17 @@ struct DashboardContent: View {
             NSWorkspace.shared.open(url)
         }
     }
-    
+
+    private func resetAccessibilityPermission() {
+        // The stale-signature dead end: opening Settings alone cannot fix it. Drop our TCC
+        // entry and re-prompt so macOS re-creates it against the current app signature.
+        AccessibilityRepair.resetAndReprompt {
+            AccessibilityRepair.prompt()
+            AccessibilityRepair.openSettings()
+            refreshAccessibilityStatus()
+        }
+    }
+
     private func loadDashboardStatsEfficiently() async {
         do {
             let summary = try await DashboardStatsLoader.load(from: modelContext.container)
@@ -298,7 +308,10 @@ struct DashboardContent: View {
     }
 
     private var accessibilityReminder: some View {
-        DashboardAccessibilityReminder(onOpenSettings: openAccessibilitySettings)
+        DashboardAccessibilityReminder(
+            onResetPermission: resetAccessibilityPermission,
+            onOpenSettings: openAccessibilitySettings
+        )
     }
 
     @ViewBuilder
@@ -462,6 +475,7 @@ struct DashboardContent: View {
 }
 
 private struct DashboardAccessibilityReminder: View {
+    let onResetPermission: () -> Void
     let onOpenSettings: () -> Void
 
     var body: some View {
@@ -490,6 +504,10 @@ private struct DashboardAccessibilityReminder: View {
             }
 
             Spacer(minLength: 12)
+
+            Button("Reset permission", action: onResetPermission)
+                .controlSize(.small)
+                .help("Switch on in Settings but Whisper Pro still blocked? Reset the stale entry and re-add it.")
 
             Button("Open Settings", action: onOpenSettings)
                 .controlSize(.small)

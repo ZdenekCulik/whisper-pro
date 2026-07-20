@@ -28,6 +28,28 @@ struct OnboardingPermissionsTests {
         #expect(controller.isLocked(.screenRecording, statuses: statuses) == false)
     }
 
+    /// The "Reset and try again" hint (and its destructive reset) must not appear the instant
+    /// the user clicks Allow, only once the request is genuinely stuck.
+    @Test func accessibilityRepairHintGating() {
+        let now = Date()
+
+        // Not requested, or already granted: never show.
+        #expect(OnboardingPermissionController.shouldShowAccessibilityRepairHint(
+            hasRequested: false, isGranted: false, requestedThisSessionAt: nil, now: now) == false)
+        #expect(OnboardingPermissionController.shouldShowAccessibilityRepairHint(
+            hasRequested: true, isGranted: true, requestedThisSessionAt: now, now: now) == false)
+
+        // Persisted flag but no request this session = previous-launch stale signature: show now.
+        #expect(OnboardingPermissionController.shouldShowAccessibilityRepairHint(
+            hasRequested: true, isGranted: false, requestedThisSessionAt: nil, now: now) == true)
+
+        // Requested this session: hidden right after the click, shown once clearly stuck.
+        #expect(OnboardingPermissionController.shouldShowAccessibilityRepairHint(
+            hasRequested: true, isGranted: false, requestedThisSessionAt: now, now: now) == false)
+        #expect(OnboardingPermissionController.shouldShowAccessibilityRepairHint(
+            hasRequested: true, isGranted: false, requestedThisSessionAt: now.addingTimeInterval(-20), now: now) == true)
+    }
+
     @Test func pendingPermissionStaysLockedBehindMissingRequiredStep() {
         let controller = makeController()
         let statuses: [OnboardingPermissionKind: OnboardingPermissionStatus] = [
@@ -95,7 +117,7 @@ struct OnboardingPermissionsTests {
             isComplete: isComplete,
             activePermission: isComplete ? .screenRecording : .accessibility,
             hasRequestedScreenRecording: false,
-            hasRequestedAccessibility: true,
+            showAccessibilityRepairHint: true,
             stepNumber: { controller.stepNumber(for: $0) },
             status: { statuses[$0] ?? .needsAccess },
             isLocked: { controller.isLocked($0, statuses: statuses) },

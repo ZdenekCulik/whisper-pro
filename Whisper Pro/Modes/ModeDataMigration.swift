@@ -97,15 +97,20 @@ extension ModeManager {
 
         let migrationKey = "hasMigratedModeToGlobalDefaultsV1"
         guard !defaults.bool(forKey: migrationKey) else { return }
-        defaults.set(true, forKey: migrationKey)
 
+        // Nothing pinned to migrate: mark done and stop. No mutation follows, so setting the
+        // flag here cannot strand a half-applied migration on a crash.
         guard var mode = currentEffectiveConfiguration,
-              let pinnedModelName = mode.selectedTranscriptionModelName else { return }
+              let pinnedModelName = mode.selectedTranscriptionModelName else {
+            defaults.set(true, forKey: migrationKey)
+            return
+        }
 
         defaults.set(pinnedModelName, forKey: "CurrentTranscriptionModel")
-        if let pinnedLanguage = mode.selectedLanguage {
-            defaults.set(pinnedLanguage, forKey: "SelectedLanguage")
-        }
+        // Normalize the language before copying it into the global default: an "en" pin can
+        // only have come from the old ModeConfig init coalesce bug (nil -> "en"), never a
+        // deliberate choice, so it maps to "auto" instead of pinning the global to English.
+        defaults.set(Self.normalizedGlobalLanguage(mode.selectedLanguage), forKey: "SelectedLanguage")
         mode.selectedTranscriptionModelName = nil
         mode.selectedLanguage = nil
         updateConfiguration(mode)
@@ -113,6 +118,59 @@ extension ModeManager {
         if activeConfiguration?.id == mode.id {
             activeConfiguration = mode
         }
+
+        // Set the flag only after the mutation is persisted, so a crash mid-migration reruns
+        // it next launch instead of skipping it forever.
+        defaults.set(true, forKey: migrationKey)
+    }
+
+    /// One-time migration: clear any mode pinned to "en". The Modes UI is hidden in current
+    /// builds and the Languages chips in Settings are the only language control, so an "en"
+    /// pin can only have come from the old ModeConfig init coalesce bug (nil -> "en"), never
+    /// a deliberate user choice. Nil-ing it lets the runtime resolver fall back to the global
+    /// language chips (auto hints, cs-first) so Czech stops being suppressed. Guarded by a
+    /// UserDefaults flag so it only ever runs once.
+    func migrateEnglishPinnedModesToAutoIfNeeded() {
+        let defaults = UserDefaults.standard
+        let migrationKey = "hasMigratedEnglishPinnedModesToAutoV1"
+        guard !defaults.bool(forKey: migrationKey) else { return }
+
+        let migrated = Self.clearingEnglishLanguagePins(configurations)
+        // ModeConfig's Equatable only compares id, so diff the language values directly.
+        let didChange = zip(configurations, migrated).contains { $0.selectedLanguage != $1.selectedLanguage }
+        if didChange {
+            configurations = migrated
+            saveConfigurations()
+        }
+
+        // On older builds migrateToGlobalTranscriptionDefaults may already have persisted a
+        // bogus "en" in the raw global key (before nulling the mode field), so normalize it
+        // here too (en -> auto). No live UI lets a user deliberately pick "en", so this is safe.
+        defaults.set(Self.normalizedGlobalLanguage(defaults.string(forKey: "SelectedLanguage")), forKey: "SelectedLanguage")
+
+        // Set the flag only after all the work above, so a crash mid-migration reruns it.
+        defaults.set(true, forKey: migrationKey)
+    }
+
+    /// Pure form of the "en" pin cleanup, exposed so it can be unit-tested without the
+    /// ModeManager singleton: a mode pinned to "en" gets its language cleared to nil
+    /// (auto/hints); every other value ("de", nil, ...) is left untouched.
+    static func clearingEnglishLanguagePins(_ configs: [ModeConfig]) -> [ModeConfig] {
+        configs.map { config in
+            guard config.selectedLanguage == "en" else { return config }
+            var updated = config
+            updated.selectedLanguage = nil
+            return updated
+        }
+    }
+
+    /// The value the global "SelectedLanguage" default should hold for a candidate language.
+    /// "en" is treated as no signal (the old ModeConfig init coalesce bug, never a deliberate
+    /// choice) and maps to "auto"; any other concrete code is kept; nil also means "auto".
+    /// Shared by both language migrations so they agree regardless of run order.
+    static func normalizedGlobalLanguage(_ candidate: String?) -> String {
+        guard let candidate, candidate != "en" else { return "auto" }
+        return candidate
     }
 
     private func migrateLegacyShortcutStorageIfNeeded() {

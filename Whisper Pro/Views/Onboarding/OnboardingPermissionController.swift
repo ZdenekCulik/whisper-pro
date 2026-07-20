@@ -6,6 +6,10 @@ import ApplicationServices
 final class OnboardingPermissionController {
     private unowned let coordinator: OnboardingCoordinator
 
+    // When this session asked for Accessibility (nil = not requested in this launch). In-memory
+    // only: the persisted coordinator.hasRequestedAccessibility covers prior launches.
+    private var accessibilityRequestedAt: Date?
+
     init(coordinator: OnboardingCoordinator) {
         self.coordinator = coordinator
     }
@@ -163,28 +167,47 @@ final class OnboardingPermissionController {
     /// is not actually trusted, and no amount of toggling fixes it. Dropping our
     /// own entry lets the next prompt re-create it against the current signature.
     func repairAccessibility() {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
-        process.arguments = ["reset", "Accessibility", Bundle.main.bundleIdentifier ?? ""]
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
-            // tccutil is missing or refused: fall through to the normal prompt,
-            // which is no worse than before.
+        AccessibilityRepair.resetAndReprompt { [weak self] in
+            guard let self else { return }
+            self.refreshPermissionStatuses()
+            self.requestAccessibility()
         }
+    }
 
-        refreshPermissionStatuses()
-        requestAccessibility()
+    /// Whether to surface the "stale Accessibility entry, reset it" repair hint. Gated so it
+    /// never appears the instant the user clicks Allow (which would let them wipe a grant they
+    /// just made) — only once the request is genuinely stuck.
+    var shouldShowAccessibilityRepairHint: Bool {
+        Self.shouldShowAccessibilityRepairHint(
+            hasRequested: coordinator.hasRequestedAccessibility,
+            isGranted: status(for: .accessibility).isGranted,
+            requestedThisSessionAt: accessibilityRequestedAt,
+            now: Date()
+        )
+    }
+
+    /// Pure decision behind `shouldShowAccessibilityRepairHint`, split out for unit testing.
+    static func shouldShowAccessibilityRepairHint(
+        hasRequested: Bool,
+        isGranted: Bool,
+        requestedThisSessionAt: Date?,
+        now: Date,
+        staleAfter: TimeInterval = 15
+    ) -> Bool {
+        guard hasRequested, !isGranted else { return false }
+        guard let requestedAt = requestedThisSessionAt else {
+            // Persisted flag but no request this session = the request happened on a previous
+            // launch (classic stale-signature case), so surface the repair right away.
+            return true
+        }
+        // Requested this session: only once it is clearly stuck, not on the first click.
+        return now.timeIntervalSince(requestedAt) >= staleAfter
     }
 
     private func requestAccessibility() {
         coordinator.hasRequestedAccessibility = true
-        let options: NSDictionary = [
-            kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true
-        ]
-        AXIsProcessTrustedWithOptions(options)
+        accessibilityRequestedAt = Date()
+        AccessibilityRepair.prompt()
         openPrivacySettings(.accessibility)
         startPollingPermissionStatus()
     }

@@ -95,6 +95,31 @@ final class SonioxRealtimeClient: @unchecked Sendable {
             throw LLMKitError.networkError("Not connected to Soniox streaming.")
         }
 
+        let config = Self.makeConfigPayload(
+            apiKey: apiKey,
+            model: model,
+            language: language,
+            customVocabulary: customVocabulary,
+            preferredHints: Self.autoLanguageHints
+        )
+
+        let jsonData = try JSONSerialization.data(withJSONObject: config)
+        let jsonString = String(data: jsonData, encoding: .utf8)!
+        try await task.send(.string(jsonString))
+    }
+
+    /// Builds the Soniox connect config. Pure and internal so the hint + context.general
+    /// logic can be unit-tested without a live socket. Alongside the strict language hints
+    /// it always sends `context.general` — the documented rescue for wrong-language output
+    /// (https://soniox.com/docs/stt/concepts/context) — which was the last thing letting
+    /// Czech surface as English.
+    static func makeConfigPayload(
+        apiKey: String,
+        model: String,
+        language: String?,
+        customVocabulary: [String],
+        preferredHints: [String]
+    ) -> [String: Any] {
         var config: [String: Any] = [
             "api_key": apiKey,
             "model": model,
@@ -104,24 +129,49 @@ final class SonioxRealtimeClient: @unchecked Sendable {
             "enable_language_identification": true
         ]
 
+        let hints: [String]
+        let general: [[String: String]]
+
         if let language, language != "auto", !language.isEmpty {
-            config["language_hints"] = [language]
-            config["language_hints_strict"] = true
+            // A concrete language is pinned: hint only that language and tell Soniox to
+            // output nothing else (the docs' recommended single-language pattern).
+            hints = [language]
+            let name = LanguageDictionary.all[language] ?? language
+            general = [
+                ["key": "language", "value": name],
+                ["key": "instructions", "value": "Output the transcription only in \(name)."]
+            ]
         } else {
-            // Auto mode: the user only ever dictates in these languages, so restrict
-            // detection to them outright — non-strict hints still let short ambiguous
-            // words drift to lookalike languages (Polish/Russian/Slovak).
-            config["language_hints"] = Self.autoLanguageHints
-            config["language_hints_strict"] = true
+            // Auto mode: restrict detection to the user's chosen languages and treat the
+            // first as primary, so short ambiguous words resolve to it instead of a
+            // lookalike language (Polish/Russian/Slovak).
+            hints = preferredHints
+            let primaryCode = preferredHints.first ?? "en"
+            let primary = LanguageDictionary.all[primaryCode] ?? primaryCode
+            let others = preferredHints.dropFirst().map { LanguageDictionary.all[$0] ?? $0 }
+            let instructions: String
+            if others.isEmpty {
+                instructions = "The speaker primarily speaks \(primary). When the language is ambiguous, prefer \(primary)."
+            } else {
+                instructions = "The speaker primarily speaks \(primary). They may occasionally switch to \(others.joined(separator: ", ")). When the language is ambiguous, prefer \(primary)."
+            }
+            general = [
+                ["key": "language", "value": primary],
+                ["key": "instructions", "value": instructions]
+            ]
         }
 
+        config["language_hints"] = hints
+        config["language_hints_strict"] = true
+
+        // general and terms are sibling sections of context (max 8000 tokens combined).
+        var context: [String: Any] = ["general": general]
         if !customVocabulary.isEmpty {
-            config["context"] = ["terms": customVocabulary]
+            context["terms"] = customVocabulary
         }
+        config["context"] = context
 
-        let jsonData = try JSONSerialization.data(withJSONObject: config)
-        let jsonString = String(data: jsonData, encoding: .utf8)!
-        try await task.send(.string(jsonString))
+        return config
     }
 
     private func receiveLoop() async {

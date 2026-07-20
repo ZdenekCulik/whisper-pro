@@ -439,15 +439,18 @@ struct WhisperProApp: App {
             title: String(localized: "Accessibility permission is not provided"),
             type: .warning,
             duration: 7.0,
-            actionButton: (String(localized: "Open Settings"), Self.openAccessibilitySettings)
+            // Reset over "Open Settings": the usual stuck state is a stale TCC entry that
+            // opening Settings alone cannot fix. Reset drops it and re-prompts.
+            actionButton: (String(localized: "Reset permission"), {
+                Task { @MainActor in
+                    AccessibilityRepair.resetAndReprompt {
+                        AccessibilityRepair.prompt()
+                        AccessibilityRepair.openSettings()
+                    }
+                }
+            })
         )
         #endif
-    }
-
-    private static func openAccessibilitySettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
-        }
     }
 }
 
