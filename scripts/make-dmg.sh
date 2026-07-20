@@ -63,7 +63,13 @@ codesign -d --entitlements - "$WORK/Whisper Pro.app" 2>/dev/null | tail -n +2
 # is a normal "you have no paid membership" case; anything else (locked keychain,
 # network hiccup, Apple 500) must stop the build, otherwise a silently
 # unnotarized DMG ships looking exactly like a good one.
-if NOTARY_PROBE=$(xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" 2>&1); then
+if [ "${SKIP_NOTARIZE:-0}" = "1" ]; then
+  # Escape hatch for the days Apple's notary service holds submissions for hours.
+  # The build is still Developer ID signed, the user just has to click through
+  # Gatekeeper once. Re-notarize and re-upload as soon as the service recovers.
+  echo "⚠️  SKIP_NOTARIZE=1, packaging a signed but unnotarized DMG."
+  NOTARIZE=0
+elif NOTARY_PROBE=$(xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" 2>&1); then
   NOTARIZE=1
 elif printf '%s' "$NOTARY_PROBE" | grep -qi "profile\|keychain item"; then
   NOTARIZE=0
@@ -111,6 +117,9 @@ if [ "$NOTARIZE" = "1" ]; then
   echo "▶ Notarizing the DMG…"
   xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
   xcrun stapler staple "$DMG"
+elif [ "${SKIP_NOTARIZE:-0}" = "1" ]; then
+  echo "⚠️  Notarization skipped on purpose. macOS will block the first launch"
+  echo "   until the user allows it in Privacy & Security > 'Open Anyway'."
 else
   echo "⚠️  Notarization skipped, no '$NOTARY_PROFILE' keychain profile found."
   echo "   One-time setup (needs a paid Apple Developer Program membership +"
