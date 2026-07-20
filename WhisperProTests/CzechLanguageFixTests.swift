@@ -66,6 +66,24 @@ struct CzechLanguageFixTests {
         #expect(instructions?.contains("prefer Czech") == true)
     }
 
+    /// Soniox's own docs warn `enable_language_identification` misclassifies the first few
+    /// words of a stream (too little context) — exactly the "Czech opens in English" bug.
+    /// Language is already pinned via language_hints + context.general, so this key must
+    /// never be sent.
+    @Test func payloadNeverEnablesLanguageIdentification() {
+        let autoPayload = SonioxRealtimeClient.makeConfigPayload(
+            apiKey: "k", model: "m", language: "auto",
+            customVocabulary: [], preferredHints: ["cs", "en"]
+        )
+        #expect(autoPayload["enable_language_identification"] == nil)
+
+        let pinnedPayload = SonioxRealtimeClient.makeConfigPayload(
+            apiKey: "k", model: "m", language: "cs",
+            customVocabulary: [], preferredHints: ["cs", "en"]
+        )
+        #expect(pinnedPayload["enable_language_identification"] == nil)
+    }
+
     @Test func concreteLanguageOutputsOnlyThatLanguage() {
         let payload = SonioxRealtimeClient.makeConfigPayload(
             apiKey: "k", model: "m", language: "cs",

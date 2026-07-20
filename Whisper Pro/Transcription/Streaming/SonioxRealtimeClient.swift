@@ -125,8 +125,7 @@ final class SonioxRealtimeClient: @unchecked Sendable {
             "model": model,
             "audio_format": "pcm_s16le",
             "sample_rate": 16000,
-            "num_channels": 1,
-            "enable_language_identification": true
+            "num_channels": 1
         ]
 
         let hints: [String]

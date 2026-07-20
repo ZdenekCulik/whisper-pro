@@ -52,7 +52,7 @@ make local      # ad-hoc build, no Apple Developer account needed
 For a build whose macOS permissions (Accessibility, Microphone) survive rebuilds, use
 `make signed` instead (signs with your own Apple Development certificate, so you grant
 permissions once). To produce a distributable DMG for sharing with someone else, use
-`make dmg`.
+`make dmg`. To run the unit and snapshot test suite, use `make test`.
 
 After first launch, add your own speech-to-text API key (e.g. Soniox) in the app's
 settings. No keys are bundled in this repo.
@@ -61,6 +61,28 @@ settings. No keys are bundled in this repo.
 
 - macOS 14.0 or later
 - Xcode (latest)
+
+## Permissions
+
+Whisper Pro asks for two macOS permissions on first launch:
+
+- **Microphone**, to record audio for transcription.
+- **Accessibility**, to type the transcribed text into whatever app you're focused on and
+  to send it with a simulated Enter key press.
+
+It also requests **Screen Recording** and Apple Events access to read context (the
+frontmost app and, for supported browsers, the current URL) used by Modes to pick the
+right prompt automatically.
+
+## Troubleshooting
+
+**Accessibility permission looks granted but dictation doesn't type anything, usually
+after a rebuild.** macOS ties the Accessibility grant to the app's exact code signature,
+so a rebuilt or reinstalled copy can keep a switch that's on but points at a stale entry.
+Whisper Pro detects this and offers a **Reset permission** button in its in-app warning
+(and on the onboarding permissions screen) that clears the stale entry and re-prompts.
+Using `make signed` instead of `make local` avoids this entirely, since the signature
+stays the same across rebuilds.
 
 ## About this project
 
