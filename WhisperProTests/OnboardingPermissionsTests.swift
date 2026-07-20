@@ -57,6 +57,26 @@ struct OnboardingPermissionsTests {
         )
     }
 
+    /// The final screen now spells out the dictation hotkey, which used to live
+    /// only in Settings.
+    @Test func renderTrustScreenWithShortcut() throws {
+        let screen = OnboardingTrustScreen(contentMaxWidth: 720, onBack: {}, onContinue: {})
+            .environmentObject(ThemeManager())
+            .environment(\.colorScheme, .dark)
+            .frame(width: 860, height: 720)
+            .background(Color(red: 0.075, green: 0.08, blue: 0.09))
+
+        let renderer = ImageRenderer(content: screen)
+        renderer.scale = 2
+        guard let image = renderer.nsImage,
+              let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else {
+            throw NSError(domain: "snapshot", code: 1)
+        }
+        try png.write(to: URL(fileURLWithPath: "/tmp/onboarding-trust.png"))
+    }
+
     private func render(
         accessibility: OnboardingPermissionStatus,
         screenRecording: OnboardingPermissionStatus,

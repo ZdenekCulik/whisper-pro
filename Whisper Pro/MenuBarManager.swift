@@ -8,7 +8,9 @@ class MenuBarManager: ObservableObject {
     @Published var isMenuBarOnly: Bool {
         didSet {
             UserDefaults.standard.set(isMenuBarOnly, forKey: "IsMenuBarOnly")
-            updateAppActivationPolicy()
+            // Explicit toggle: keep the window where it is. Hiding it here made
+            // flipping the switch in Settings look like the app had crashed.
+            updateAppActivationPolicy(hidingMainWindow: false)
         }
     }
 
@@ -78,7 +80,9 @@ class MenuBarManager: ObservableObject {
         }
     }
     
-    private func updateAppActivationPolicy() {
+    /// `hidingMainWindow` is only true at launch, where "menu bar only" means the
+    /// app should come up without a window at all.
+    private func updateAppActivationPolicy(hidingMainWindow: Bool = true) {
         let applyPolicy = { [weak self] in
             guard let self else { return }
             self.activationGeneration &+= 1
@@ -86,7 +90,13 @@ class MenuBarManager: ObservableObject {
             if self.isMenuBarOnly {
                 self.logger.notice("updateAppActivationPolicy: switching to .accessory (dock icon hidden)")
                 application.setActivationPolicy(.accessory)
-                WindowManager.shared.hideMainWindow()
+                if hidingMainWindow {
+                    WindowManager.shared.hideMainWindow()
+                } else {
+                    // Dropping to .accessory deactivates the app, which would send the
+                    // window the user is standing in behind everything else.
+                    application.activate(ignoringOtherApps: true)
+                }
             } else {
                 self.logger.notice("updateAppActivationPolicy: switching to .regular (dock icon visible)")
                 // Order matters: activationPolicy must flip to .regular before activate(),

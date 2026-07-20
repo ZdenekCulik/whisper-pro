@@ -59,9 +59,19 @@ echo "▶ Verifying signature…"
 codesign --verify --deep --strict "$WORK/Whisper Pro.app"
 codesign -d --entitlements - "$WORK/Whisper Pro.app" 2>/dev/null | tail -n +2
 
-if xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
+# Decide up front whether this build can be notarized. A missing keychain profile
+# is a normal "you have no paid membership" case; anything else (locked keychain,
+# network hiccup, Apple 500) must stop the build, otherwise a silently
+# unnotarized DMG ships looking exactly like a good one.
+if NOTARY_PROBE=$(xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" 2>&1); then
   NOTARIZE=1
+elif printf '%s' "$NOTARY_PROBE" | grep -qi "profile\|keychain item"; then
+  NOTARIZE=0
 else
+  echo "❌ Notarization check failed, refusing to package an unnotarized DMG:"
+  printf '%s\n' "$NOTARY_PROBE"
+  echo "   Re-run when it works, or set ALLOW_UNNOTARIZED=1 to package anyway."
+  [ "${ALLOW_UNNOTARIZED:-0}" = "1" ] || exit 1
   NOTARIZE=0
 fi
 

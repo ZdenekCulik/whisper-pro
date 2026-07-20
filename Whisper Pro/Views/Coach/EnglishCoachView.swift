@@ -118,11 +118,36 @@ struct EnglishCoachView: View {
                 .foregroundColor(theme.resolvedPrimaryText)
             Text(enabled
                  ? "Keep dictating in English — helpful tweaks will show up here."
-                 : "Turn the coach on in Settings to start collecting gentle English tips.")
+                 : "Turn it on to start collecting gentle English tips.")
                 .font(.system(size: 12.5, weight: .medium))
                 .foregroundColor(theme.resolvedSecondaryText)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)
+
+            if !enabled {
+                HStack(spacing: 10) {
+                    Button {
+                        enabled = true
+                    } label: {
+                        Text("Turn on English coach")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
+                        NotificationCenter.default.post(
+                            name: .navigateToDestination,
+                            object: nil,
+                            userInfo: ["destination": ViewType.settings.rawValue]
+                        )
+                    } label: {
+                        Text("Open Settings")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.top, 6)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)

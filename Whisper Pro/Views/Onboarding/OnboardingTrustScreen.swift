@@ -85,8 +85,41 @@ private struct TrustBody: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: 610)
+
+                DictationShortcutRow()
+                    .padding(.top, 14)
             }
         }
+    }
+}
+
+/// The last thing a new user sees, so it is also the first place the dictation
+/// hotkey is spelled out. Until now it only lived in Settings, which left people
+/// finishing onboarding without knowing which key starts a recording.
+private struct DictationShortcutRow: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("Press")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(AppTheme.Text.primary)
+
+            ShortcutRecorder(action: .primaryRecording)
+                .controlSize(.small)
+
+            Text("anywhere to dictate")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(AppTheme.Text.primary)
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 46)
+        .background(
+            Capsule()
+                .fill(AppTheme.Surface.control.opacity(0.84))
+        )
+        .overlay(
+            Capsule()
+                .stroke(AppTheme.Border.subtle, lineWidth: 1)
+        )
     }
 }
 
