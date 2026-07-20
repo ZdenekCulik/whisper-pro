@@ -20,7 +20,9 @@ struct SettingsView: View {
     // UserDefaults.preferredLanguageHints), which Soniox now leans on to resolve ambiguous
     // words, so selection order has to survive a round-trip.
     @State private var preferredLanguageCodes: [String] = UserDefaults.standard.preferredLanguageHints
-    @StateObject private var previewAudioSimulator = FakeSpeechAudioSimulator()
+    // Cmd+W hides the window via orderOut instead of closing it, so .onDisappear never
+    // fires — this tracks that hide/show separately to stop the preview animations too.
+    @State private var isSettingsVisible = true
 
     var body: some View {
         Form {
@@ -155,10 +157,10 @@ struct SettingsView: View {
 
                     HStack(spacing: 12) {
                         ForEach(WidgetVariant.allCases) { variant in
-                            PanelLookPreviewCard(
+                            PanelLookPreviewSlot(
                                 variant: variant,
                                 isSelected: widgetVariantStore.variant == variant,
-                                audioMeter: previewAudioSimulator.meter
+                                isActive: isSettingsVisible
                             ) {
                                 withAnimation(.easeInOut(duration: 0.15)) {
                                     widgetVariantStore.variant = variant
@@ -179,14 +181,24 @@ struct SettingsView: View {
 
                     HStack(spacing: 12) {
                         ForEach(0..<WaveformStyleView.styleCount, id: \.self) { i in
-                            waveformPreviewCard(style: i)
+                            WaveformPreviewSlot(
+                                style: i,
+                                isSelected: waveformStyle == i,
+                                // Only the selected card needs to keep animating while
+                                // open; a non-selected one just sits on a static frame.
+                                isActive: isSettingsVisible && waveformStyle == i
+                            ) {
+                                waveformStyle = i
+                            }
                         }
                     }
                 }
                 .padding(.vertical, 4)
             }
-            .onAppear { previewAudioSimulator.start() }
-            .onDisappear { previewAudioSimulator.stop() }
+            .onReceive(NotificationCenter.default.publisher(for: .mainWindowVisibilityChanged)) { note in
+                let visible = (note.userInfo?["visible"] as? Bool) ?? true
+                isSettingsVisible = visible
+            }
 
             Section("General") {
                 Toggle("Hide Dock Icon", isOn: $menuBarManager.isMenuBarOnly)
@@ -220,58 +232,6 @@ struct SettingsView: View {
         }
         .labelsHidden()
         .fixedSize()
-    }
-
-    // MARK: - Waveform preview
-
-    private func waveformPreviewCard(style: Int) -> some View {
-        let isSelected = waveformStyle == style
-
-        return VStack(spacing: 8) {
-            ZStack {
-                // Same dimmed-desktop stage as the Panel Look cards above, so the two
-                // preview rows read as one consistent system instead of one sitting on
-                // plain black and the other on the gradient.
-                PanelLookPreviewCard.stage
-
-                // Pass the real measured width, not WaveformStyleView's fixed 132pt
-                // default — this is exactly what the live pill's waveformCycler does, and
-                // it's what makes "claude" actually span edge-to-edge here instead of
-                // sitting in a narrow canvas centered inside the card ("bars" still centers
-                // itself within whatever width it's given, so both stay faithful).
-                GeometryReader { geo in
-                    WaveformStyleView(
-                        style: style,
-                        audioMeter: previewAudioSimulator.meter,
-                        isActive: true,
-                        width: geo.size.width
-                    )
-                }
-                .frame(width: 150, height: 28)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 10)
-                // Dark tint stands in for the pill's own near-black chrome, so it still
-                // reads clearly against the lighter stage behind it — glass just adds
-                // the refraction texture on macOS 26+.
-                .glassSurface(cornerRadius: 10, tint: GlassSurface.darkChromeTint) {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black)
-                }
-            }
-            .frame(width: PanelLookPreviewCard.cardWidth, height: PanelLookPreviewCard.cardHeight)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(isSelected ? Color.white : AppTheme.Border.subtle, lineWidth: isSelected ? 2 : 1)
-            )
-
-            Text(WaveformStyleView.styleNames[style].capitalized)
-                .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.white : AppTheme.Text.secondary)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            waveformStyle = style
-        }
     }
 
     // MARK: - Languages
@@ -383,6 +343,28 @@ struct SettingsView: View {
     }
 }
 
+/// Drives just this card's fake audio meter off a TimelineView clock (display-link render
+/// path) instead of a @Published tick, so the level animates without re-evaluating all of
+/// SettingsView.body. `paused: !isActive` schedules nothing while the window is hidden.
+private struct PanelLookPreviewSlot: View {
+    let variant: WidgetVariant
+    let isSelected: Bool
+    let isActive: Bool
+    let action: () -> Void
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: !isActive)) { context in
+            PanelLookPreviewCard(
+                variant: variant,
+                isSelected: isSelected,
+                audioMeter: FakeSpeechMeter.meter(at: context.date.timeIntervalSinceReferenceDate),
+                isActive: isActive,
+                action: action
+            )
+        }
+    }
+}
+
 /// One selectable preview card for the "Panel Look" setting. Renders the REAL
 /// `Variant2View` / `Variant16View` (same code path the floating panel uses) — not a
 /// hand-drawn stand-in. Each variant is laid out at its own known, fixed natural size
@@ -397,10 +379,11 @@ private struct PanelLookPreviewCard: View {
     let variant: WidgetVariant
     let isSelected: Bool
     let audioMeter: AudioMeter
+    let isActive: Bool
     let action: () -> Void
 
-    // fileprivate (not private): reused by SettingsView.waveformPreviewCard so the
-    // Waveform demo cards sit on the exact same stage as these Panel Look cards.
+    // fileprivate (not private): reused by WaveformPreviewSlot so the Waveform demo
+    // cards sit on the exact same stage as these Panel Look cards.
     fileprivate static let cardWidth: CGFloat = 210
     fileprivate static let cardHeight: CGFloat = 110
 
@@ -518,9 +501,14 @@ private struct PanelLookPreviewCard: View {
 
     @ViewBuilder
     private var mockup: some View {
-        switch variant {
-        case .v2:  classicMockup
-        case .v16: minimalMockup
+        // While inactive (settings window hidden), don't even construct the real
+        // Variant2View/Variant16View subtree — both embed their own always-on
+        // TimelineView clocks that an `isActive` flag passed into them wouldn't pause.
+        if isActive {
+            switch variant {
+            case .v2:  classicMockup
+            case .v16: minimalMockup
+            }
         }
     }
 
@@ -563,37 +551,81 @@ private struct PanelLookPreviewCard: View {
     }
 }
 
-/// Drives Settings' preview cards (Panel Look + Waveform) with a fake but natural-looking
-/// "someone is speaking" audio envelope, so those previews animate continuously instead
-/// of sitting on a static level or (worse) static swapped-in text.
-@MainActor
-private final class FakeSpeechAudioSimulator: ObservableObject {
-    @Published private(set) var meter = AudioMeter(averagePower: 0, peakPower: 0)
+/// Drives just this card's fake audio meter off a TimelineView clock (display-link render
+/// path) instead of a @Published tick, so the level animates without re-evaluating all of
+/// SettingsView.body. `paused: !isActive` schedules nothing while the window is hidden.
+private struct WaveformPreviewSlot: View {
+    let style: Int
+    let isSelected: Bool
+    let isActive: Bool
+    let action: () -> Void
 
-    private var timer: Timer?
-    private let startedAt = Date()
-
-    func start() {
-        guard timer == nil else { return }
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 20.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.tick() }
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: !isActive)) { context in
+            content(audioMeter: FakeSpeechMeter.meter(at: context.date.timeIntervalSinceReferenceDate))
         }
     }
 
-    func stop() {
-        timer?.invalidate()
-        timer = nil
-    }
+    private func content(audioMeter: AudioMeter) -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                // Same dimmed-desktop stage as the Panel Look cards above, so the two
+                // preview rows read as one consistent system instead of one sitting on
+                // plain black and the other on the gradient.
+                PanelLookPreviewCard.stage
 
-    private func tick() {
-        let t = Date().timeIntervalSince(startedAt)
+                // Pass the real measured width, not WaveformStyleView's fixed 132pt
+                // default — this is exactly what the live pill's waveformCycler does, and
+                // it's what makes "claude" actually span edge-to-edge here instead of
+                // sitting in a narrow canvas centered inside the card ("bars" still centers
+                // itself within whatever width it's given, so both stay faithful).
+                GeometryReader { geo in
+                    WaveformStyleView(
+                        style: style,
+                        audioMeter: audioMeter,
+                        isActive: isActive,
+                        width: geo.size.width
+                    )
+                }
+                .frame(width: 150, height: 28)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 10)
+                // Dark tint stands in for the pill's own near-black chrome, so it still
+                // reads clearly against the lighter stage behind it — glass just adds
+                // the refraction texture on macOS 26+.
+                .glassSurface(cornerRadius: 10, tint: GlassSurface.darkChromeTint) {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black)
+                }
+            }
+            .frame(width: PanelLookPreviewCard.cardWidth, height: PanelLookPreviewCard.cardHeight)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? Color.white : AppTheme.Border.subtle, lineWidth: isSelected ? 2 : 1)
+            )
+
+            Text(WaveformStyleView.styleNames[style].capitalized)
+                .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Color.white : AppTheme.Text.secondary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: action)
+    }
+}
+
+/// Drives Settings' preview cards (Panel Look + Waveform) with a fake but natural-looking
+/// "someone is speaking" audio envelope, so those previews animate continuously instead
+/// of sitting on a static level or (worse) static swapped-in text. A pure function of time
+/// (no per-tick state), evaluated straight from the TimelineView clock in each slot.
+private enum FakeSpeechMeter {
+    static func meter(at t: TimeInterval) -> AudioMeter {
         // Layer a slow phrase-level rise/fall with a faster syllable-level wobble so
         // the level reads as speech (bursts of louder words, brief dips) rather than a
         // steady tone or a single sine wave.
         let phrase = sin(t * 0.6) * 0.5 + 0.5
         let syllable = sin(t * 5.2) * 0.5 + 0.5
         let envelope = max(0, phrase * 0.7 + syllable * 0.3 - 0.15)
-        meter = AudioMeter(averagePower: min(1, envelope * 0.75), peakPower: min(1, envelope))
+        return AudioMeter(averagePower: min(1, envelope * 0.75), peakPower: min(1, envelope))
     }
 }
 

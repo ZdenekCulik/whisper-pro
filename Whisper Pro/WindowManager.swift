@@ -2,6 +2,10 @@ import SwiftUI
 import AppKit
 import OSLog
 
+extension Notification.Name {
+    static let mainWindowVisibilityChanged = Notification.Name("mainWindowVisibilityChanged")
+}
+
 class WindowManager: NSObject {
     static let shared = WindowManager()
 
@@ -56,14 +60,16 @@ class WindowManager: NSObject {
         
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
+        NotificationCenter.default.post(name: .mainWindowVisibilityChanged, object: nil, userInfo: ["visible": true])
         return window
     }
-    
+
     func hideMainWindow() {
         guard let window = resolveMainWindow() else {
             return
         }
         window.orderOut(nil)
+        NotificationCenter.default.post(name: .mainWindowVisibilityChanged, object: nil, userInfo: ["visible": false])
     }
     
     func currentMainWindow() -> NSWindow? {
@@ -112,6 +118,7 @@ extension WindowManager: NSWindowDelegate {
         if window.identifier == Self.mainWindowIdentifier {
             logger.notice("windowWillClose: main window closing, clearing weak reference")
             window.orderOut(nil)
+            NotificationCenter.default.post(name: .mainWindowVisibilityChanged, object: nil, userInfo: ["visible": false])
             mainWindow = nil
             didApplyInitialPlacement = false
         }

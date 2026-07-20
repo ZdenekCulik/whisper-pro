@@ -198,6 +198,11 @@ struct ProcessingIndicator: View {
                     rotation = 360
                 }
             }
+            .onDisappear {
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { rotation = 0 }
+            }
     }
 }
 

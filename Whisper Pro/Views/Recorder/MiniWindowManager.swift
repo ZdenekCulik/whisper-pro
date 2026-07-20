@@ -32,6 +32,8 @@ private struct AnimatedPanelHost<Content: View>: View {
 class MiniWindowManager {
     private var windowController: NSWindowController?
     private var panel: MiniRecorderPanel?
+    private var hostingController: NSHostingController<AnyView>?
+    private var contentAttached = false
     private let appearance = PanelAppearance()
     /// Delays orderOut until the SwiftUI dismiss animation below has actually played.
     private var hideTask: Task<Void, Never>?
@@ -68,6 +70,7 @@ class MiniWindowManager {
         hideTask?.cancel()
         hideTask = nil
         if panel == nil { initializeWindow() }
+        attachContent()
         panel?.show()
         // Start from the hidden state and animate in on the next runloop tick, so the
         // window is already on screen (per MiniRecorderPanel.show()) before SwiftUI
@@ -91,12 +94,14 @@ class MiniWindowManager {
         guard !skipAnimation else {
             hideTask = nil
             panel?.orderOut(nil)
+            detachContent()
             return
         }
         hideTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard let self, !Task.isCancelled else { return }
             self.panel?.orderOut(nil)
+            self.detachContent()
         }
     }
 
@@ -110,19 +115,35 @@ class MiniWindowManager {
         deinitializeWindow()
         let metrics = MiniRecorderPanel.calculateWindowMetrics()
         let newPanel = MiniRecorderPanel(contentRect: metrics)
-        let view = makeView()
-        let hostingController = NSHostingController(
-            rootView: AnimatedPanelHost(appearance: appearance, content: view)
-        )
+        let hostingController = NSHostingController<AnyView>(rootView: AnyView(EmptyView()))
         newPanel.contentView = hostingController.view
+        self.hostingController = hostingController
         panel = newPanel
         windowController = NSWindowController(window: newPanel)
+    }
+
+    /// Mount the live SwiftUI tree only while the panel is on screen. Once hidden the
+    /// tree is swapped for EmptyView (see detachContent) so no TimelineView/animation
+    /// keeps the run loop busy behind an ordered-out window.
+    private func attachContent() {
+        guard !contentAttached else { return }
+        hostingController?.rootView = AnyView(
+            AnimatedPanelHost(appearance: appearance, content: makeView())
+        )
+        contentAttached = true
+    }
+
+    private func detachContent() {
+        hostingController?.rootView = AnyView(EmptyView())
+        contentAttached = false
     }
 
     private func deinitializeWindow() {
         panel?.orderOut(nil)
         windowController?.close()
         windowController = nil
+        hostingController = nil
+        contentAttached = false
         panel = nil
     }
 }

@@ -43,12 +43,22 @@ struct WaveformStyleView: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: redrawInterval)) { ctx in
-            Canvas { gc, size in
-                draw(&gc, size: size, t: ctx.date.timeIntervalSince1970)
-            }
-            .onChange(of: ctx.date) { _, newDate in
-                appendHistorySample(now: newDate.timeIntervalSince1970)
+        Group {
+            // Only the "isActive" path needs a per-frame clock; inactive previews (paused
+            // or off-screen) render one static frame instead of ticking the TimelineView.
+            if isActive {
+                TimelineView(.animation(minimumInterval: redrawInterval)) { ctx in
+                    Canvas { gc, size in
+                        draw(&gc, size: size, t: ctx.date.timeIntervalSince1970)
+                    }
+                    .onChange(of: ctx.date) { _, newDate in
+                        appendHistorySample(now: newDate.timeIntervalSince1970)
+                    }
+                }
+            } else {
+                Canvas { gc, size in
+                    draw(&gc, size: size, t: 0)
+                }
             }
         }
         .frame(width: renderWidth, height: 28)
