@@ -27,6 +27,7 @@ struct OnboardingView: View {
                         isComplete: coordinator.requiredPermissionsGranted,
                         activePermission: coordinator.activePermission,
                         hasRequestedScreenRecording: coordinator.hasRequestedScreenRecording,
+                        hasRequestedAccessibility: coordinator.hasRequestedAccessibility,
                         stepNumber: { coordinator.permissions.stepNumber(for: $0) },
                         status: { coordinator.permissions.status(for: $0) },
                         isLocked: { coordinator.permissions.isLocked($0) },

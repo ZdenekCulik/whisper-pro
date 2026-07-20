@@ -20,6 +20,12 @@ final class OnboardingCoordinator: ObservableObject {
         }
     }
 
+    @Published var hasRequestedAccessibility: Bool {
+        didSet {
+            defaults.set(hasRequestedAccessibility, forKey: OnboardingStorageKeys.requestedAccessibility)
+        }
+    }
+
     @Published var storedOnboardingAIProvider: String {
         didSet {
             defaults.set(storedOnboardingAIProvider, forKey: OnboardingStorageKeys.aiProvider)
@@ -52,6 +58,7 @@ final class OnboardingCoordinator: ObservableObject {
         self.storedStage = defaults.string(forKey: OnboardingStorageKeys.stage) ?? OnboardingStage.permissions.rawValue
         self.storedActivePermission = defaults.string(forKey: OnboardingStorageKeys.activePermission) ?? OnboardingPermissionKind.microphone.rawValue
         self.hasRequestedScreenRecording = defaults.bool(forKey: OnboardingStorageKeys.requestedScreenRecording)
+        self.hasRequestedAccessibility = defaults.bool(forKey: OnboardingStorageKeys.requestedAccessibility)
         self.storedOnboardingAIProvider = defaults.string(forKey: OnboardingStorageKeys.aiProvider) ?? AIProvider.groq.rawValue
         self.hasSkippedAPISetup = defaults.bool(forKey: OnboardingStorageKeys.skippedAPISetup)
         self.hasSkippedSonioxSetup = defaults.bool(forKey: OnboardingStorageKeys.skippedSonioxSetup)
@@ -183,6 +190,7 @@ enum OnboardingStorageKeys {
     static let stage = "onboardingStage"
     static let activePermission = "onboardingActivePermission"
     static let requestedScreenRecording = "onboardingRequestedScreenRecording"
+    static let requestedAccessibility = "onboardingRequestedAccessibility"
     static let experienceIndex = "onboardingExperienceIndex"
     static let aiProvider = "onboardingAIProvider"
     static let skippedAPISetup = "onboardingSkippedAPISetup"
@@ -192,6 +200,7 @@ enum OnboardingStorageKeys {
         stage,
         activePermission,
         requestedScreenRecording,
+        requestedAccessibility,
         aiProvider,
         skippedAPISetup,
         skippedSonioxSetup,

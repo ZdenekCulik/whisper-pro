@@ -6,7 +6,7 @@ struct PermissionStepRow: View {
     let status: OnboardingPermissionStatus
     let isActive: Bool
     let isLocked: Bool
-    let showsRestartHint: Bool
+    let hint: PermissionStepHint?
     let actionTitle: String
     let onSelect: () -> Void
     let onAction: () -> Void
@@ -37,8 +37,8 @@ struct PermissionStepRow: View {
                 }
             }
 
-            if isActive && !isLocked && showsRestartHint {
-                restartHint
+            if isActive, !isLocked, let hint {
+                hintView(hint)
                     .padding(.leading, 44)
             }
         }
@@ -110,19 +110,26 @@ struct PermissionStepRow: View {
         }
     }
 
-    private var restartHint: some View {
-        HStack(spacing: 8) {
-            Text("Restart Whisper Pro after enabling Screen Recording.")
+    private func hintView(_ hint: PermissionStepHint) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(LocalizedStringKey(hint.text))
                 .font(.system(size: 12))
                 .foregroundColor(AppTheme.Text.muted)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button("Quit") {
-                onQuit()
+            if hint.showsQuitAction {
+                Button("Quit") {
+                    onQuit()
+                }
+                .font(.system(size: 12, weight: .semibold))
+                .buttonStyle(.plain)
+                .foregroundColor(AppTheme.Action.secondaryForeground)
             }
-            .font(.system(size: 12, weight: .semibold))
-            .buttonStyle(.plain)
-            .foregroundColor(AppTheme.Action.secondaryForeground)
         }
     }
+}
+
+struct PermissionStepHint {
+    let text: String
+    let showsQuitAction: Bool
 }

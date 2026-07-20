@@ -64,6 +64,12 @@ final class OnboardingPermissionController {
         _ permission: OnboardingPermissionKind,
         statuses: [OnboardingPermissionKind: OnboardingPermissionStatus]
     ) -> Bool {
+        // A permission the user already granted is never locked, otherwise the row
+        // reads "Locked" next to its own green checkmark.
+        if (statuses[permission] ?? diagnose(permission)).isGranted {
+            return false
+        }
+
         guard let index = OnboardingPermissionKind.allCases.firstIndex(of: permission) else {
             return false
         }
@@ -152,6 +158,7 @@ final class OnboardingPermissionController {
     }
 
     private func requestAccessibility() {
+        coordinator.hasRequestedAccessibility = true
         let options: NSDictionary = [
             kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true
         ]
