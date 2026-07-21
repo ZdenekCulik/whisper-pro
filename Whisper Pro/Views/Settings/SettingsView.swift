@@ -17,6 +17,7 @@ struct SettingsView: View {
     @AppStorage("sonioxBalanceUSD") private var sonioxBalanceUSD = 0.0
     @AppStorage("sonioxBalanceSetDate") private var sonioxBalanceSetDate = 0.0
     @AppStorage("sonioxBalanceLabel") private var sonioxBalanceLabel = "Soniox"
+    @AppStorage("dashboardChartLogStrength") private var dashboardChartLogStrength = 1.0
     @State private var sonioxBalanceText = ""
     @State private var isSonioxBalanceHighlighted = false
     @State private var showSonioxBalanceSaved = false
@@ -201,6 +202,20 @@ struct SettingsView: View {
                             }
                         }
                     }
+                }
+                .padding(.vertical, 4)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Activity Chart Scale")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(dashboardChartLogStrength < 0.05 ? "Linear" : (dashboardChartLogStrength > 0.95 ? "Logarithmic" : "Mixed"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                    }
+                    Slider(value: $dashboardChartLogStrength, in: 0...1)
                 }
                 .padding(.vertical, 4)
             }

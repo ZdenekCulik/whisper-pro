@@ -906,6 +906,16 @@ private let dashboardDayKeyFormatter: DateFormatter = {
     return formatter
 }()
 
+/// Blends the linear and logarithmic height ratio for a bar/line chart point.
+/// `logStrength` is the Settings slider value: 0 = fully linear, 1 = fully log.
+private func dashboardChartRatio(words: Int, maxWords: Int, logStrength: Double) -> Double {
+    guard maxWords > 0, words > 0 else { return 0 }
+    let linearRatio = Double(words) / Double(maxWords)
+    let logRatio = log(Double(words) + 1) / log(Double(maxWords) + 1)
+    let strength = min(max(logStrength, 0), 1)
+    return linearRatio * (1 - strength) + logRatio * strength
+}
+
 /// Earliest day with any recorded activity, parsed from the aggregated day-key map.
 /// Note: `days` (aka `heatDays`) is only ever populated for the last 52 weeks (see
 /// `DashboardHeatmapWindow`), so this — and the bar/line chart range derived from it —
@@ -1054,6 +1064,7 @@ private struct DashboardBarsChartView: View {
     private let dayCount: Int
     private let series: [(date: Date, day: DashboardHeatDay?)]
 
+    @AppStorage("dashboardChartLogStrength") private var logStrength = 1.0
     @State private var hoverIndex: Int?
     @State private var hoverPoint: CGPoint = .zero
 
@@ -1107,7 +1118,7 @@ private struct DashboardBarsChartView: View {
 
                     for (i, item) in items.enumerated() {
                         let words = item.day?.words ?? 0
-                        let ratio = maxWords > 0 ? Double(words) / Double(maxWords) : 0
+                        let ratio = dashboardChartRatio(words: words, maxWords: maxWords, logStrength: logStrength)
                         let barHeight = max(CGFloat(ratio) * chartHeight, words > 0 ? 3 : 1)
                         let x = CGFloat(i) * (slotWidth + gap) + xOffset
                         let rect = CGRect(x: x, y: chartBottom - barHeight, width: barWidth, height: barHeight)
@@ -1166,6 +1177,7 @@ private struct DashboardLineChartView: View {
     private let dayCount: Int
     private let series: [(date: Date, day: DashboardHeatDay?)]
 
+    @AppStorage("dashboardChartLogStrength") private var logStrength = 1.0
     @State private var hoverIndex: Int?
     @State private var hoverPoint: CGPoint = .zero
 
@@ -1202,7 +1214,7 @@ private struct DashboardLineChartView: View {
             let stepX = items.count > 1 ? geo.size.width / CGFloat(items.count - 1) : 0
             let points: [CGPoint] = items.indices.map { i in
                 let words = items[i].day?.words ?? 0
-                let ratio = Double(words) / Double(maxWords)
+                let ratio = dashboardChartRatio(words: words, maxWords: maxWords, logStrength: logStrength)
                 return CGPoint(x: CGFloat(i) * stepX, y: chartBottom - CGFloat(ratio) * chartHeight)
             }
 

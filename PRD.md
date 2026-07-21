@@ -68,7 +68,9 @@ provider-agnostic transcription, and an output pipeline that produces text ready
    month/all-time, active days, and, once a Soniox balance is set in Settings, the
    remaining balance — all in one stats strip. Below that, an activity chart
    (heatmap, bar, or line) spans the user's full dictation history, plus recent
-   transcripts. The header shows an editable name and initials avatar (tap to cycle
+   transcripts. The bar/line styles' height scale (linear vs. logarithmic) is
+   adjustable via a slider in Settings → Interface. The header shows an editable
+   name and initials avatar (tap to cycle
    its color, gently rotating on its own) and a rotating fun-fact/motivational line
    (click it for another one).
 2. User opens History to browse, search, or recover past transcriptions (a recovery
