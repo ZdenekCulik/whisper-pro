@@ -223,6 +223,19 @@ class TranscriptionPipeline {
         }
 
         func saveTranscriptionAndPostCompletion() {
+            let isEmptyCompletion = transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue
+                && (finalText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+
+            if isEmptyCompletion {
+                modelContext.delete(transcription)
+                do {
+                    try modelContext.save()
+                } catch {
+                    logger.error("Failed to discard empty transcription: \(error, privacy: .public)")
+                }
+                return
+            }
+
             if transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
                 // App captured at recording start (the app dictated into).
                 let dictatedApp = ActiveWindowService.shared.currentApplication

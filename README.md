@@ -27,6 +27,7 @@ provider (e.g. Soniox), with optional AI cleanup of the text.
 - 🔌 **Any engine**: cloud (Soniox) or fully local models
 - 📝 **Learns your words**: personal dictionary & replacements
 - 📊 **Live transcript + stats**: hours saved, streaks
+- 💸 **Soniox budget pill**: enter your balance once, see what's left
 
 ## Install
 
@@ -55,7 +56,8 @@ permissions once). To produce a distributable DMG for sharing with someone else,
 `make dmg`. To run the unit and snapshot test suite, use `make test`.
 
 After first launch, add your own speech-to-text API key (e.g. Soniox) in the app's
-settings. No keys are bundled in this repo.
+settings. No keys are bundled in this repo. If you're on Soniox, also enter your current
+account balance in Settings, Profile, so the Dashboard can show what's left.
 
 ## Requirements
 

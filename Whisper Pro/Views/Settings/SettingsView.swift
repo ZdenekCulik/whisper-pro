@@ -12,6 +12,14 @@ struct SettingsView: View {
     @AppStorage("restoreClipboardAfterPaste") private var restoreClipboardAfterPaste = true
     @AppStorage("clipboardRestoreDelay") private var clipboardRestoreDelay = 2.0
     @AppStorage("WaveformStyle") private var waveformStyle = 0
+    @AppStorage("dashboardUserName") private var dashboardUserName = ""
+    @AppStorage("dashboardAvatarInitials") private var dashboardAvatarInitials = ""
+    @AppStorage("sonioxBalanceUSD") private var sonioxBalanceUSD = 0.0
+    @AppStorage("sonioxBalanceSetDate") private var sonioxBalanceSetDate = 0.0
+    @AppStorage("sonioxBalanceLabel") private var sonioxBalanceLabel = "Soniox"
+    @State private var sonioxBalanceText = ""
+    @State private var isSonioxBalanceHighlighted = false
+    @State private var showSonioxBalanceSaved = false
     @State private var hasCancelRecordingShortcut = ShortcutStore.shortcut(for: .cancelRecorder) != nil
     @State private var cancelRecordingShortcutRecorderResetID = 0
 
@@ -25,6 +33,7 @@ struct SettingsView: View {
     @State private var isSettingsVisible = true
 
     var body: some View {
+        ScrollViewReader { scrollProxy in
         Form {
             Section {
                 LabeledContent("Primary Shortcut") {
@@ -210,12 +219,120 @@ struct SettingsView: View {
                     .controlSize(.small)
             }
 
+            Section("Profile") {
+                LabeledContent("Name") {
+                    TextField("", text: $dashboardUserName, prompt: Text(defaultUserName))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 200)
+                }
+
+                LabeledContent("Initials") {
+                    TextField("", text: $dashboardAvatarInitials, prompt: Text(defaultInitials))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 60)
+                        .onChange(of: dashboardAvatarInitials) { _, newValue in
+                            let capped = String(newValue.uppercased().prefix(3))
+                            if capped != dashboardAvatarInitials { dashboardAvatarInitials = capped }
+                        }
+                }
+                Text("Shown on the dashboard avatar. Leave blank to use initials from your name.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                LabeledContent("Balance Label") {
+                    TextField("", text: $sonioxBalanceLabel, prompt: Text("Soniox"))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 200)
+                }
+
+                LabeledContent("\(sonioxBalanceLabelOrDefault) Balance") {
+                    HStack(spacing: 8) {
+                        if showSonioxBalanceSaved {
+                            Label("Saved", systemImage: "checkmark")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .transition(.opacity)
+                        } else if isSonioxBalanceTextDirty {
+                            Button("Confirm", action: saveSonioxBalance)
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                        }
+                        Text("$")
+                            .foregroundStyle(.secondary)
+                        TextField("0.00", text: $sonioxBalanceText)
+                            .textFieldStyle(.roundedBorder)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                            .onSubmit(saveSonioxBalance)
+                    }
+                }
+                .id("sonioxBalanceField")
+                .padding(4)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.accentColor.opacity(isSonioxBalanceHighlighted ? 0.15 : 0))
+                )
+                Text("Enter your current \(sonioxBalanceLabelOrDefault) balance, then confirm. Whisper Pro tracks spend since then to estimate what's left.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("English Coach") {
                 EnglishCoachSettingsView()
             }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+        .onAppear {
+            sonioxBalanceText = sonioxBalanceUSD > 0 ? String(format: "%.2f", sonioxBalanceUSD) : ""
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .scrollToSonioxBalance)) { _ in
+            withAnimation { scrollProxy.scrollTo("sonioxBalanceField", anchor: .center) }
+            withAnimation(.easeIn(duration: 0.2)) { isSonioxBalanceHighlighted = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                withAnimation(.easeOut(duration: 0.4)) { isSonioxBalanceHighlighted = false }
+            }
+        }
+        }
+    }
+
+    private var defaultUserName: String {
+        let full = NSFullUserName().trimmingCharacters(in: .whitespacesAndNewlines)
+        let first = full.split(separator: " ").first.map(String.init) ?? full
+        return first.isEmpty ? "Zdeněk" : first
+    }
+
+    private var defaultInitials: String {
+        let chars = dashboardUserName.trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: " ").prefix(2).compactMap(\.first)
+        let value = String(chars).uppercased()
+        return value.isEmpty ? "Z" : value
+    }
+
+    private var sonioxBalanceLabelOrDefault: String {
+        let trimmed = sonioxBalanceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Soniox" : trimmed
+    }
+
+    private var isSonioxBalanceTextDirty: Bool {
+        let saved = sonioxBalanceUSD > 0 ? String(format: "%.2f", sonioxBalanceUSD) : ""
+        return sonioxBalanceText != saved
+    }
+
+    private func saveSonioxBalance() {
+        guard let value = Double(sonioxBalanceText.replacingOccurrences(of: ",", with: ".")), value >= 0 else {
+            sonioxBalanceText = sonioxBalanceUSD > 0 ? String(format: "%.2f", sonioxBalanceUSD) : ""
+            return
+        }
+        sonioxBalanceUSD = value
+        sonioxBalanceSetDate = Date().timeIntervalSince1970
+        withAnimation(.easeIn(duration: 0.15)) { showSonioxBalanceSaved = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            withAnimation(.easeOut(duration: 0.4)) { showSonioxBalanceSaved = false }
+        }
     }
 
     private static let defaultCancelRecordingShortcut = Shortcut.key(

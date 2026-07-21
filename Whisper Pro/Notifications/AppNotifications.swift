@@ -21,4 +21,5 @@ extension Notification.Name {
     static let typedMetricsDidChange = Notification.Name("typedMetricsDidChange")
     static let englishCoachCorrectionReady = Notification.Name("englishCoachCorrectionReady")
     static let audioDeviceSwitchRequired = Notification.Name("audioDeviceSwitchRequired")
+    static let scrollToSonioxBalance = Notification.Name("scrollToSonioxBalance")
 }

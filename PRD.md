@@ -65,7 +65,10 @@ provider-agnostic transcription, and an output pipeline that produces text ready
 
 ### 4.5 Review history and progress
 1. User opens the Dashboard to see stats: hours saved, dictation streaks, a
-   contribution graph, top apps dictated into, and recent transcripts.
+   contribution graph, top apps dictated into, and recent transcripts. The header
+   shows an editable name and initials avatar (tap to cycle its color), a rotating
+   fun-fact/motivational line, and, once a Soniox balance is set in Settings, a
+   subtle budget pill showing remaining balance and spend this month.
 2. User opens History to browse, search, or recover past transcriptions (a recovery
    store protects against losing a transcript if the app crashes mid-session).
 3. The English Coach surfaces observations and phrasing suggestions derived from the
@@ -87,6 +90,8 @@ provider-agnostic transcription, and an output pipeline that produces text ready
 | Auto-pause system audio during recording | Prevents music or a video call from bleeding into the microphone and corrupting the transcript. |
 | Send-on-Enter | Removes the last manual step for chat-style destinations, so dictation is a complete send action, not just text insertion. |
 | Dashboard stats, streaks, insights | Personal motivation and a sanity check that the tool is actually being used and saving time. |
+| Dashboard personalization (editable name, cycling avatar color, rotating fun-fact subtitle) | Makes a daily-use screen feel personal instead of static, without adding any real configuration burden. |
+| Soniox budget pill (balance minus tracked spend since the balance was entered, plus spend this month) | Soniox has no balance API, only usage logs; letting the user enter their balance once and tracking spend since then gives a running "money left" estimate instead of surprise depletion. |
 | Transcript history + crash recovery store | Losing a long dictation to a crash is worse than typing it in the first place; recovery removes that risk. |
 | English Coach | Turns the by-product of daily dictation (a large corpus of the user's own speech) into passive language-learning feedback. |
 | Onboarding with permission repair | Accessibility grants silently go stale after every ad-hoc rebuild during development; the repair flow turns a recurring dev annoyance into a one-click fix instead of a support dead end. |

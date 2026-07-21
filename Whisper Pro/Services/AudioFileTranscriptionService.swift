@@ -131,13 +131,15 @@ class AudioTranscriptionService: ObservableObject {
                         modeName: modeName,
                         modeEmoji: modeEmoji
                     )
-                    modelContext.insert(newTranscription)
-                    do {
-                        try modelContext.save()
-                        NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
-                        NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
-                    } catch {
-                        logger.error("❌ Failed to save transcription: \(error, privacy: .public)")
+                    if !originalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        modelContext.insert(newTranscription)
+                        do {
+                            try modelContext.save()
+                            NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
+                            NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
+                        } catch {
+                            logger.error("❌ Failed to save transcription: \(error, privacy: .public)")
+                        }
                     }
                     await MainActor.run {
                         isTranscribing = false
@@ -155,13 +157,15 @@ class AudioTranscriptionService: ObservableObject {
                         modeName: modeName,
                         modeEmoji: modeEmoji
                     )
-                    modelContext.insert(newTranscription)
-                    do {
-                        try modelContext.save()
-                        NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
-                        NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
-                    } catch {
-                        logger.error("❌ Failed to save transcription: \(error, privacy: .public)")
+                    if !originalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        modelContext.insert(newTranscription)
+                        do {
+                            try modelContext.save()
+                            NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
+                            NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
+                        } catch {
+                            logger.error("❌ Failed to save transcription: \(error, privacy: .public)")
+                        }
                     }
 
                     await MainActor.run {
@@ -181,12 +185,14 @@ class AudioTranscriptionService: ObservableObject {
                     modeName: modeName,
                     modeEmoji: modeEmoji
                 )
-                modelContext.insert(newTranscription)
-                do {
-                    try modelContext.save()
-                    NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
-                } catch {
-                    logger.error("❌ Failed to save transcription: \(error, privacy: .public)")
+                if !originalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    modelContext.insert(newTranscription)
+                    do {
+                        try modelContext.save()
+                        NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
+                    } catch {
+                        logger.error("❌ Failed to save transcription: \(error, privacy: .public)")
+                    }
                 }
 
                 await MainActor.run {

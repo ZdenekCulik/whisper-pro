@@ -400,7 +400,7 @@ struct TranscriptionHistoryView: View {
         do {
             lastTimestamp = nil
             let items = try modelContext.fetch(cursorQueryDescriptor())
-            displayedTranscriptions = items
+            displayedTranscriptions = items.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             lastTimestamp = items.last?.timestamp
             hasMoreContent = items.count == pageSize
         } catch {
@@ -417,7 +417,7 @@ struct TranscriptionHistoryView: View {
 
         do {
             let newItems = try modelContext.fetch(cursorQueryDescriptor(after: lastTimestamp))
-            displayedTranscriptions.append(contentsOf: newItems)
+            displayedTranscriptions.append(contentsOf: newItems.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
             self.lastTimestamp = newItems.last?.timestamp
             hasMoreContent = newItems.count == pageSize
         } catch {
