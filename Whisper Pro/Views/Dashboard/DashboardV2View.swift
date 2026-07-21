@@ -110,7 +110,14 @@ struct DashboardV2View: View {
                 identitySection
                     .opacity(identityVisible ? 1 : 0)
                     .offset(y: identityVisible ? 0 : 8)
-                DashboardStatsStripV2(stats: stats)
+                DashboardStatsStripV2(
+                    stats: stats,
+                    sonioxLabel: sonioxBalanceLabelOrDefault,
+                    sonioxValueText: sonioxStatValueText,
+                    sonioxIsLow: isSonioxBalanceLow,
+                    sonioxVisible: showSonioxBudgetPill || showSonioxSetBalanceAffordance,
+                    sonioxAction: openSonioxSettings
+                )
                 .opacity(statsVisible ? 1 : 0)
                 .offset(y: statsVisible ? 0 : 8)
                 activitySection
@@ -155,6 +162,18 @@ struct DashboardV2View: View {
                 Text(subtitleText)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                    .id(subtitleText)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .offset(y: 4)),
+                        removal: .opacity.combined(with: .offset(y: -4))
+                    ))
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.35)) {
+                            subtitleText = pickSubtitle()
+                        }
+                    }
+                    .help("Click for another one")
             }
         }
         .frame(maxWidth: .infinity)
@@ -235,8 +254,7 @@ struct DashboardV2View: View {
         let books: [(title: String, words: Int)] = [
             ("The Hobbit", 95_000),
             ("Harry Potter and the Philosopher's Stone", 77_000),
-            ("The Lord of the Rings", 480_000),
-            ("War and Peace", 587_000)
+            ("The Lord of the Rings (the trilogy)", 480_000)
         ]
         for book in books {
             let ratio = Double(stats.totalWords) / Double(book.words)
@@ -245,36 +263,13 @@ struct DashboardV2View: View {
             }
         }
 
-        if stats.minutesDictated > 0 {
-            let movieRatio = Double(stats.minutesDictated) / 120.0
-            if movieRatio >= 0.5 {
-                pool.append("That's \(formatRatio(movieRatio))x the runtime of a movie, spoken instead of typed")
-            }
-            let albumRatio = Double(stats.minutesDictated) / 45.0
-            if albumRatio >= 0.5 {
-                pool.append("Enough talking to fill \(formatRatio(albumRatio)) albums")
-            }
+        if stats.totalWords >= 500 {
+            let tweetRatio = Double(stats.totalWords) / 50.0
+            pool.append("About \(formattedNumber(Int(tweetRatio))) tweets (~50 words each)")
+            let textMessageRatio = Double(stats.totalWords) / 15.0
+            pool.append("Around \(formattedNumber(Int(textMessageRatio))) text messages (~15 words each)")
         }
 
-        if stats.currentStreak >= 2 {
-            pool.append("\(stats.currentStreak)-day streak, keep it alive")
-        }
-        if stats.activeDays >= 5 {
-            pool.append("\(stats.activeDays) active days and counting")
-        }
-        if stats.totalWords >= 1000 {
-            pool.append("\(formattedNumber(stats.totalWords)) words typed by voice, not by hand")
-        }
-
-        pool.append(contentsOf: [
-            "Every dictated word is one you didn't have to type",
-            "Your voice, your words, no keyboard required",
-            "Small sessions add up to big totals",
-            "Consistency beats intensity",
-            "Dictate now, edit never",
-            "Speaking is faster than typing, every time",
-            "Keep the streak going, one thought at a time"
-        ])
         return pool
     }
 
@@ -304,26 +299,14 @@ struct DashboardV2View: View {
         return trimmed.isEmpty ? "Soniox" : trimmed
     }
 
-    private var sonioxBudgetPill: some View {
-        Text("\(sonioxBalanceLabelOrDefault) \(formatMoney(sonioxRemaining))")
-            .font(.system(size: 12))
-            .foregroundStyle(isSonioxBalanceLow ? Color.orange : Color.secondary)
-            .help("Estimated remaining Soniox transcription credit, based on usage since you last set your balance. Click to update balance.")
-            .contentShape(Rectangle())
-            .onTapGesture(perform: openSonioxSettings)
+    /// Text shown in the stats strip's Soniox cell: the remaining balance once it's
+    /// been set, or a nudge to set it if a key exists but no balance was entered yet.
+    private var sonioxStatValueText: String {
+        showSonioxBudgetPill ? formatMoney(sonioxRemaining) : "Set"
     }
 
     private var showSonioxSetBalanceAffordance: Bool {
         sonioxBalanceSetDate == 0 && APIKeyManager.shared.hasAPIKey(forProvider: "Soniox")
-    }
-
-    private var setSonioxBalanceAffordance: some View {
-        Text("Set \(sonioxBalanceLabelOrDefault) balance")
-            .font(.system(size: 12))
-            .foregroundStyle(Color.accentColor)
-            .help("Set your current Soniox transcription credit so the dashboard can estimate the remaining balance from usage.")
-            .contentShape(Rectangle())
-            .onTapGesture(perform: openSonioxSettings)
     }
 
     private func openSonioxSettings() {
@@ -359,20 +342,25 @@ struct DashboardV2View: View {
                 dashboardControlPills
             }
             activityChart
-            if showSonioxBudgetPill {
+            if chartStyle != .heatmap {
                 HStack {
+                    Text(activityRangeStartLabel)
                     Spacer()
-                    sonioxBudgetPill
+                    Text("Today")
                 }
-                .padding(.top, -4)
-            } else if showSonioxSetBalanceAffordance {
-                HStack {
-                    Spacer()
-                    setSonioxBalanceAffordance
-                }
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
                 .padding(.top, -4)
             }
         }
+    }
+
+    /// Month abbreviation of the earliest day plotted in the bars/line charts, so the
+    /// left edge of the chart is labeled to match whatever range it's actually showing.
+    private var activityRangeStartLabel: String {
+        guard let earliestDay = dashboardEarliestDay(in: heatDays) else { return "" }
+        let month = Calendar.current.component(.month, from: earliestDay)
+        return dashboardMonthAbbrev(month)
     }
 
     @ViewBuilder
@@ -527,7 +515,7 @@ struct DashboardV2View: View {
         }.value
 
         var recentDescriptor = FetchDescriptor<Transcription>(sortBy: [SortDescriptor(\.timestamp, order: .reverse)])
-        recentDescriptor.fetchLimit = 15
+        recentDescriptor.fetchLimit = 50
         let recent = (try? modelContext.fetch(recentDescriptor)) ?? []
 
         if let aggregated {
@@ -544,6 +532,12 @@ private func formattedNumber(_ value: Int) -> String {
     formatter.numberStyle = .decimal
     formatter.groupingSeparator = " "
     return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+}
+
+private func formatHoursMinutes(_ totalMinutes: Int) -> String {
+    let hours = totalMinutes / 60
+    let minutes = totalMinutes % 60
+    return hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
 }
 
 // MARK: - Avatar (ported from ClaudeSpendBarApp.swift AvatarGradientSurface / avatar)
@@ -577,6 +571,10 @@ private struct DashboardAvatarView: View {
     let initials: String
     @Binding var colorIndex: Int
     @State private var isHovered = false
+    // A slow, Core Animation-driven rotation so the avatar feels alive even at rest,
+    // without the always-on TimelineView clock the hover state uses (that one's kept
+    // hover-only to avoid burning CPU idly - see whisper-pro-cpu-preview-animations).
+    @State private var ambientAngle: Double = 0
 
     private var colors: [Color] {
         let sets = avatarColorSets
@@ -610,6 +608,7 @@ private struct DashboardAvatarView: View {
                 }
             } else {
                 spinSurface(at: Self.idleTime)
+                    .rotationEffect(.degrees(ambientAngle))
             }
             Text(initials)
                 .font(.system(size: 23, weight: .semibold, design: .rounded))
@@ -619,6 +618,11 @@ private struct DashboardAvatarView: View {
         .clipShape(Circle())
         .overlay(Circle().stroke(Color.white.opacity(0.16), lineWidth: 1))
         .contentShape(Circle())
+        .onAppear {
+            withAnimation(.linear(duration: 40).repeatForever(autoreverses: false)) {
+                ambientAngle = 360
+            }
+        }
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.3)) {
                 isHovered = hovering
@@ -636,6 +640,11 @@ private struct DashboardAvatarView: View {
 
 private struct DashboardStatsStripV2: View {
     let stats: DashboardV2Stats
+    var sonioxLabel: String = "Soniox"
+    var sonioxValueText: String = ""
+    var sonioxIsLow: Bool = false
+    var sonioxVisible: Bool = false
+    var sonioxAction: () -> Void = {}
 
     // Drives the count-up: starts at zero on every appearance, then animates
     // to the real `stats` once loaded (or immediately if already loaded).
@@ -649,15 +658,19 @@ private struct DashboardStatsStripV2: View {
     private var statCells: some View {
         Group {
             HStack(spacing: 0) {
+                cellV2("Time saved", \.minutesDictated, icon: "clock", format: formatHoursMinutes)
+                divider
                 cellV2("Today", \.wordsToday, icon: "sun.max")
                 divider
-                cellV2("Month", \.wordsMonth, icon: "calendar")
+                cellV2("This month", \.wordsMonth, icon: "calendar")
                 divider
-                cellV2("Words", \.totalWords, icon: "textformat")
-                divider
-                cellV2("Minutes", \.minutesDictated, icon: "clock")
+                cellV2("All time", \.totalWords, icon: "textformat")
                 divider
                 cellV2("Active days", \.activeDays, icon: "calendar.badge.checkmark")
+                if sonioxVisible {
+                    divider
+                    sonioxCell
+                }
                 divider
                 cellV2("Streak", \.currentStreak, icon: "flame") { "\($0)d" }
             }
@@ -690,6 +703,7 @@ private struct DashboardStatsStripV2: View {
                          format: @escaping (Int) -> String = { formattedNumber($0) }) -> some View {
         VStack(spacing: 0) {
             Image(systemName: icon)
+                .symbolVariant(.fill)
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 9)
@@ -708,6 +722,33 @@ private struct DashboardStatsStripV2: View {
         }
         .frame(maxWidth: .infinity, minHeight: 56)
         .padding(.horizontal, 6)
+    }
+
+    private var sonioxCell: some View {
+        VStack(spacing: 0) {
+            Image(systemName: "s.circle")
+                .symbolVariant(.fill)
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 9)
+            Text(sonioxLabel)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.bottom, 2)
+            Text(sonioxValueText)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(sonioxIsLow ? Color.orange : .primary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .frame(maxWidth: .infinity, minHeight: 56)
+        .padding(.horizontal, 6)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: sonioxAction)
+        .help("Estimated remaining Soniox transcription credit. Click to update balance.")
     }
 
     private var divider: some View {
@@ -855,11 +896,38 @@ private struct DashboardYearHeatmapView: View {
 
 // MARK: - Chart helpers shared by the bars and line chart styles
 
+/// Dotted stroke used for both the baseline and the hover guide line on the
+/// bars/line charts, so the two stay visually identical by construction.
+private let dashboardChartDottedStroke = StrokeStyle(lineWidth: 1, dash: [1, 4], dashPhase: 0)
+
 private let dashboardDayKeyFormatter: DateFormatter = {
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyy-MM-dd"
     return formatter
 }()
+
+/// Earliest day with any recorded activity, parsed from the aggregated day-key map.
+/// Note: `days` (aka `heatDays`) is only ever populated for the last 52 weeks (see
+/// `DashboardHeatmapWindow`), so this — and the bar/line chart range derived from it —
+/// is implicitly capped at ~1 year even though nothing here says so directly.
+private func dashboardEarliestDay(in days: [String: DashboardHeatDay]) -> Date? {
+    guard let earliestKey = days.keys.min(),
+          let earliestDate = dashboardDayKeyFormatter.date(from: earliestKey) else {
+        return nil
+    }
+    return Calendar.current.startOfDay(for: earliestDate)
+}
+
+/// Number of days to plot so the chart starts on the earliest day with data, ending today.
+private func dashboardChartDayCount(for days: [String: DashboardHeatDay]) -> Int {
+    let calendar = Calendar.current
+    let today = calendar.startOfDay(for: Date())
+    guard let earliestDay = dashboardEarliestDay(in: days) else {
+        return 60
+    }
+    let span = calendar.dateComponents([.day], from: earliestDay, to: today).day ?? 0
+    return max(span + 1, 1)
+}
 
 private func dashboardShortDate(_ d: Date) -> String {
     let c = Calendar.current.dateComponents([.month, .day], from: d)
@@ -976,17 +1044,26 @@ private struct DashboardTooltipRichCard: View {
     }
 }
 
-// MARK: - Bars (last ~60 days)
+// MARK: - Bars (since first recorded day)
 
 private struct DashboardBarsChartView: View {
     let days: [String: DashboardHeatDay]
-
-    private let dayCount = 60
+    // Computed once at init instead of as a `var` re-derived from `days` on every
+    // body pass — `hoverIndex` lives in this same view, so a hover move alone was
+    // re-parsing every day key and rebuilding the whole date array each frame.
+    private let dayCount: Int
+    private let series: [(date: Date, day: DashboardHeatDay?)]
 
     @State private var hoverIndex: Int?
     @State private var hoverPoint: CGPoint = .zero
 
-    private var series: [(date: Date, day: DashboardHeatDay?)] {
+    init(days: [String: DashboardHeatDay]) {
+        self.days = days
+        self.dayCount = dashboardChartDayCount(for: days)
+        self.series = Self.makeSeries(days: days, dayCount: dayCount)
+    }
+
+    private static func makeSeries(days: [String: DashboardHeatDay], dayCount: Int) -> [(date: Date, day: DashboardHeatDay?)] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         return (0..<dayCount).map { i in
@@ -1005,29 +1082,47 @@ private struct DashboardBarsChartView: View {
     var body: some View {
         let items = series
         let maxWords = items.compactMap { $0.day?.words }.max() ?? 0
-        let gap: CGFloat = 3
+        // Long histories pack many more slots into the same width, so shrink the
+        // gap as the count grows to keep bars themselves visibly thick.
+        let gap: CGFloat = dayCount > 150 ? 0.75 : (dayCount > 90 ? 1.5 : 3)
 
         GeometryReader { geo in
             let slotWidth = max((geo.size.width - CGFloat(dayCount - 1) * gap) / CGFloat(dayCount), 1)
             let barWidth = slotWidth
             let xOffset = (slotWidth - barWidth) / 2
-            let chartBottom = geo.size.height - 4
-            let chartHeight = chartBottom - 4
+            let chartTop: CGFloat = 6
+            let chartBottom = geo.size.height - 2
+            let chartHeight = chartBottom - 2
 
             ZStack(alignment: .topLeading) {
                 Canvas { ctx, _ in
+                    if let hoverIndex, items.indices.contains(hoverIndex) {
+                        let guideX = CGFloat(hoverIndex) * (slotWidth + gap) + xOffset + barWidth / 2
+                        var guideLine = Path()
+                        guideLine.move(to: CGPoint(x: guideX, y: chartTop))
+                        guideLine.addLine(to: CGPoint(x: guideX, y: chartBottom))
+                        ctx.stroke(guideLine, with: .color(.white.opacity(0.15)),
+                                    style: dashboardChartDottedStroke)
+                    }
+
                     for (i, item) in items.enumerated() {
                         let words = item.day?.words ?? 0
                         let ratio = maxWords > 0 ? Double(words) / Double(maxWords) : 0
                         let barHeight = max(CGFloat(ratio) * chartHeight, words > 0 ? 3 : 1)
                         let x = CGFloat(i) * (slotWidth + gap) + xOffset
                         let rect = CGRect(x: x, y: chartBottom - barHeight, width: barWidth, height: barHeight)
+                        let roundedRect = Path(roundedRect: rect, cornerRadius: min(barWidth * 0.3, 3))
 
                         let baseAlpha = words > 0 ? 0.18 + 0.82 * sqrt(ratio) : 0.07
                         let isHovered = hoverIndex == i
                         let alpha = isHovered ? (words > 0 ? 1.0 : 0.16) : baseAlpha
                         let color = words > 0 ? DashboardChartMetrics.heatColor.opacity(alpha) : Color.white.opacity(alpha)
-                        ctx.fill(Path(roundedRect: rect, cornerRadius: min(barWidth * 0.3, 3)), with: .color(color))
+                        ctx.fill(roundedRect, with: .color(color))
+                        if isHovered && words > 0 {
+                            // Lighten the hovered bar further so it visibly pops
+                            // even when it's already near-full opacity at rest.
+                            ctx.fill(roundedRect, with: .color(.white.opacity(0.35)))
+                        }
                     }
                 }
                 .contentShape(Rectangle())
@@ -1062,17 +1157,25 @@ private struct DashboardBarsChartView: View {
     }
 }
 
-// MARK: - Line/area (last ~90 days)
+// MARK: - Line/area (since first recorded day)
 
 private struct DashboardLineChartView: View {
     let days: [String: DashboardHeatDay]
-
-    private let dayCount = 90
+    // See DashboardBarsChartView's init for why this is cached instead of
+    // recomputed on every hover-driven body pass.
+    private let dayCount: Int
+    private let series: [(date: Date, day: DashboardHeatDay?)]
 
     @State private var hoverIndex: Int?
     @State private var hoverPoint: CGPoint = .zero
 
-    private var series: [(date: Date, day: DashboardHeatDay?)] {
+    init(days: [String: DashboardHeatDay]) {
+        self.days = days
+        self.dayCount = dashboardChartDayCount(for: days)
+        self.series = Self.makeSeries(days: days, dayCount: dayCount)
+    }
+
+    private static func makeSeries(days: [String: DashboardHeatDay], dayCount: Int) -> [(date: Date, day: DashboardHeatDay?)] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         return (0..<dayCount).map { i in
@@ -1122,14 +1225,14 @@ private struct DashboardLineChartView: View {
                     baseline.move(to: CGPoint(x: 0, y: chartBottom))
                     baseline.addLine(to: CGPoint(x: geo.size.width, y: chartBottom))
                     ctx.stroke(baseline, with: .color(.white.opacity(0.15)),
-                                style: StrokeStyle(lineWidth: 1, dash: [1, 4], dashPhase: 0))
+                                style: dashboardChartDottedStroke)
 
                     if let hoverPoint = hoverIndex.flatMap({ items.indices.contains($0) ? points[$0] : nil }) {
                         var guideLine = Path()
                         guideLine.move(to: CGPoint(x: hoverPoint.x, y: chartTop))
                         guideLine.addLine(to: CGPoint(x: hoverPoint.x, y: chartBottom))
                         ctx.stroke(guideLine, with: .color(.white.opacity(0.15)),
-                                    style: StrokeStyle(lineWidth: 1, dash: [1, 4], dashPhase: 0))
+                                    style: dashboardChartDottedStroke)
                     }
 
                     ctx.stroke(stepPath, with: .color(heatColor.opacity(0.85)),
@@ -1144,7 +1247,11 @@ private struct DashboardLineChartView: View {
                             hoverIndex = nil
                             return
                         }
-                        let i = Int((pt.x / stepX).rounded())
+                        // Each step segment [i, i+1) is drawn at item i's height (the
+                        // riser happens at x = i * stepX), so the owning index is a
+                        // floor, not a round-to-nearest - otherwise the right half of
+                        // a tall bar's segment gets attributed to the next (lower) day.
+                        let i = Int((pt.x / stepX).rounded(.down))
                         guard items.indices.contains(i) else {
                             hoverIndex = nil
                             return

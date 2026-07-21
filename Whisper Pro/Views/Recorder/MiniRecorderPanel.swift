@@ -47,7 +47,7 @@ class MiniRecorderPanel: NSPanel {
         }
 
         // Host stays large enough for assistant output; SwiftUI controls the visible mini width.
-        let padding: CGFloat = 24
+        let padding: CGFloat = 8
 
         let visibleFrame = screen.visibleFrame
         let centerX = visibleFrame.midX

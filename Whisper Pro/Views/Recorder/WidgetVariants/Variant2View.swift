@@ -5,7 +5,7 @@ struct Variant2View: View {
     let context: WidgetVariantContext
 
     // Click the bottom waveform to cycle through the prototype designs.
-    @AppStorage("WaveformStyle") private var waveformStyle: Int = 0
+    @AppStorage("WaveformStyle") private var waveformStyle: Int = 1
     // Escape/cancel dismiss look — picked in Settings → Interface.
     @AppStorage(DismissEffectStyle.storageKey) private var dismissEffectRaw: Int = DismissEffectStyle.contentScatter.rawValue
     private var dismissEffect: DismissEffectStyle {
@@ -17,14 +17,15 @@ struct Variant2View: View {
     private static let maxWidth: CGFloat = 520
     private static let defaultWidth: CGFloat = 384
     private static let collapsedWidth: CGFloat = 138
-    private static let collapsedHeight: CGFloat = 58
+    private static let collapsedHeight: CGFloat = 46
 
-    // Transcript grows with the text from a 2-row floor up to a 3-row cap, then scrolls.
+    // Transcript grows with the text from a 2-row floor up to a 2-row cap, then scrolls
+    // (one row shorter than before, so the panel takes up less vertical space).
     private static let fontSize: CGFloat = 13
     private static let lineSpacing: CGFloat = 3
     private static let lineHeight: CGFloat = fontSize + lineSpacing + 4
     private static let defaultLines: CGFloat = 2
-    private static let maxLines: CGFloat = 3
+    private static let maxLines: CGFloat = 2
     private static let textTopPadding: CGFloat = 16
     private static let textBottomPadding: CGFloat = 6
 
@@ -41,9 +42,9 @@ struct Variant2View: View {
         return saved
     }()
 
-    // Default to the expanded (taller) layout on every spawn; collapse is a manual,
-    // session-only toggle, not a persisted preference.
-    @State private var isCollapsed = false
+    // Persisted so a manual collapse sticks across recordings/reopens until the user
+    // expands it again — this was previously session-only and reset on every spawn.
+    @AppStorage("MiniWidgetVariant2Collapsed") private var isCollapsed = false
     @State private var isHoveringPanel = false
     @State private var isHoveringToggle = false
     @State private var measuredTextHeight: CGFloat = Variant2View.minTextHeight
@@ -81,10 +82,6 @@ struct Variant2View: View {
             .animation(.spring(response: 0.42, dampingFraction: 0.86), value: isCollapsed)
             .animation(.spring(response: 0.42, dampingFraction: 0.86), value: isPasteHint)
             .animation(.spring(response: 0.42, dampingFraction: 0.86), value: measuredTextHeight)
-            .onChange(of: context.recordingState) { _, newState in
-                // A fresh recording (CMD spawn) always opens expanded.
-                if newState == .recording { isCollapsed = false }
-            }
             .onChange(of: context.isCanceling) { _, canceling in
                 isShellDissolving = false
                 isContentShellExiting = false

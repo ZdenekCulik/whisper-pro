@@ -27,7 +27,7 @@ provider (e.g. Soniox), with optional AI cleanup of the text.
 - 🔌 **Any engine**: cloud (Soniox) or fully local models
 - 📝 **Learns your words**: personal dictionary & replacements
 - 📊 **Live transcript + stats**: hours saved, streaks
-- 💸 **Soniox budget pill**: enter your balance once, see what's left
+- 💸 **Soniox balance stat**: enter your balance once, see what's left right in the dashboard stats
 
 ## Install
 

@@ -64,11 +64,13 @@ provider-agnostic transcription, and an output pipeline that produces text ready
    user leaves onboarding able to dictate immediately.
 
 ### 4.5 Review history and progress
-1. User opens the Dashboard to see stats: hours saved, dictation streaks, a
-   contribution graph, top apps dictated into, and recent transcripts. The header
-   shows an editable name and initials avatar (tap to cycle its color), a rotating
-   fun-fact/motivational line, and, once a Soniox balance is set in Settings, a
-   subtle budget pill showing remaining balance and spend this month.
+1. User opens the Dashboard to see stats: time saved, words dictated today/this
+   month/all-time, active days, and, once a Soniox balance is set in Settings, the
+   remaining balance — all in one stats strip. Below that, an activity chart
+   (heatmap, bar, or line) spans the user's full dictation history, plus recent
+   transcripts. The header shows an editable name and initials avatar (tap to cycle
+   its color, gently rotating on its own) and a rotating fun-fact/motivational line
+   (click it for another one).
 2. User opens History to browse, search, or recover past transcriptions (a recovery
    store protects against losing a transcript if the app crashes mid-session).
 3. The English Coach surfaces observations and phrasing suggestions derived from the
@@ -91,7 +93,7 @@ provider-agnostic transcription, and an output pipeline that produces text ready
 | Send-on-Enter | Removes the last manual step for chat-style destinations, so dictation is a complete send action, not just text insertion. |
 | Dashboard stats, streaks, insights | Personal motivation and a sanity check that the tool is actually being used and saving time. |
 | Dashboard personalization (editable name, cycling avatar color, rotating fun-fact subtitle) | Makes a daily-use screen feel personal instead of static, without adding any real configuration burden. |
-| Soniox budget pill (balance minus tracked spend since the balance was entered, plus spend this month) | Soniox has no balance API, only usage logs; letting the user enter their balance once and tracking spend since then gives a running "money left" estimate instead of surprise depletion. |
+| Soniox balance stat (balance minus tracked spend since the balance was entered, shown in the main stats strip) | Soniox has no balance API, only usage logs; letting the user enter their balance once and tracking spend since then gives a running "money left" estimate instead of surprise depletion. |
 | Transcript history + crash recovery store | Losing a long dictation to a crash is worse than typing it in the first place; recovery removes that risk. |
 | English Coach | Turns the by-product of daily dictation (a large corpus of the user's own speech) into passive language-learning feedback. |
 | Onboarding with permission repair | Accessibility grants silently go stale after every ad-hoc rebuild during development; the repair flow turns a recurring dev annoyance into a one-click fix instead of a support dead end. |

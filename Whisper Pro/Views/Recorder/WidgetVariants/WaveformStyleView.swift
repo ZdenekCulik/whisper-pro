@@ -3,8 +3,14 @@ import SwiftUI
 /// A swappable recorder waveform for the V2 mini recorder. Each style is drawn inside
 /// padded bounds so strokes never scrape the top or bottom of the pill.
 struct WaveformStyleView: View {
-    static let styleNames = ["bars", "claude"]
+    // Index stays fixed (it's a persisted @AppStorage raw value) — only the display
+    // name changed. Reordering the array itself would silently flip every existing
+    // user's saved 0/1 choice to the other style.
+    static let styleNames = ["bars", "pulse"]
     static var styleCount: Int { styleNames.count }
+    /// Visual order for pickers (Pulse shown first/default) — independent of the
+    /// stored index above, so it doesn't touch existing users' saved preference.
+    static let displayOrder = [1, 0]
     private static let claudeStyleIndex = 1
     /// Fixed intrinsic width used when no explicit `width` is supplied (Settings preview,
     /// snapshot tests) — the mini-panel passes its own measured width to fill edge to edge.

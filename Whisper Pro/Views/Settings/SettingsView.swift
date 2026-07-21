@@ -11,7 +11,7 @@ struct SettingsView: View {
     @ObservedObject private var widgetVariantStore = WidgetVariantStore.shared
     @AppStorage("restoreClipboardAfterPaste") private var restoreClipboardAfterPaste = true
     @AppStorage("clipboardRestoreDelay") private var clipboardRestoreDelay = 2.0
-    @AppStorage("WaveformStyle") private var waveformStyle = 0
+    @AppStorage("WaveformStyle") private var waveformStyle = 1
     @AppStorage("dashboardUserName") private var dashboardUserName = ""
     @AppStorage("dashboardAvatarInitials") private var dashboardAvatarInitials = ""
     @AppStorage("sonioxBalanceUSD") private var sonioxBalanceUSD = 0.0
@@ -131,8 +131,8 @@ struct SettingsView: View {
                 // "+ Add another" on its own row. FlowLayout instead hugs each chip's
                 // real width so this sits like a plain native settings row.
                 FlowLayout(spacing: 8) {
-                    ForEach(Array(selectedLanguages.enumerated()), id: \.element.id) { index, language in
-                        selectedLanguageChip(language, isPrimary: index == 0)
+                    ForEach(selectedLanguages) { language in
+                        selectedLanguageChip(language)
                     }
                     addLanguageMenu
                 }
@@ -189,7 +189,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 12) {
-                        ForEach(0..<WaveformStyleView.styleCount, id: \.self) { i in
+                        ForEach(WaveformStyleView.displayOrder, id: \.self) { i in
                             WaveformPreviewSlot(
                                 style: i,
                                 isSelected: waveformStyle == i,
@@ -380,22 +380,15 @@ struct SettingsView: View {
         Self.supportedDictationLanguages.filter { !preferredLanguageCodes.contains($0.code) }
     }
 
-    private func selectedLanguageChip(_ language: DictationLanguage, isPrimary: Bool) -> some View {
+    private func selectedLanguageChip(_ language: DictationLanguage) -> some View {
         let canRemove = preferredLanguageCodes.count > 1
 
         return HStack(spacing: 6) {
-            Text(language.label)
+            Text(language.englishName)
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
                 .foregroundStyle(AppTheme.Text.primary)
-
-            if isPrimary {
-                // The first hint is the primary language Soniox leans on for ambiguous words.
-                Text("Primary")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(AppTheme.Accent.primary)
-            }
 
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) {

@@ -21,27 +21,42 @@ struct FlowLayout: Layout {
 
     private func computeLayout(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
         let maxWidth = proposal.width ?? .infinity
-        var positions: [CGPoint] = []
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
+        // Two passes: first bucket subviews into rows, then place each row's items
+        // centered on that row's tallest item — a plain top-align (single pass) left
+        // shorter controls like the borderless "Add another" menu button sitting
+        // noticeably higher than the taller language chips next to it.
+        var rows: [[(index: Int, size: CGSize)]] = [[]]
+        var rowWidth: CGFloat = 0
         var maxX: CGFloat = 0
 
-        for subview in subviews {
+        for (index, subview) in subviews.enumerated() {
             let size = subview.sizeThatFits(proposal)
             let width = min(size.width, maxWidth)
 
-            if x > 0, x + width > maxWidth {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
+            if rowWidth > 0, rowWidth + width > maxWidth {
+                rows.append([])
+                rowWidth = 0
             }
-            positions.append(CGPoint(x: x, y: y))
-            rowHeight = max(rowHeight, size.height)
-            x += width + spacing
-            maxX = max(maxX, x - spacing)
+            rows[rows.count - 1].append((index, size))
+            rowWidth += width + spacing
+            maxX = max(maxX, rowWidth - spacing)
         }
 
-        return (CGSize(width: maxWidth.isFinite ? maxWidth : maxX, height: y + rowHeight), positions)
+        var positions = [CGPoint](repeating: .zero, count: subviews.count)
+        var y: CGFloat = 0
+        var totalHeight: CGFloat = 0
+        for row in rows {
+            guard !row.isEmpty else { continue }
+            let rowHeight = row.map(\.size.height).max() ?? 0
+            var x: CGFloat = 0
+            for (index, size) in row {
+                positions[index] = CGPoint(x: x, y: y + (rowHeight - size.height) / 2)
+                x += size.width + spacing
+            }
+            y += rowHeight + spacing
+            totalHeight = y - spacing
+        }
+
+        return (CGSize(width: maxWidth.isFinite ? maxWidth : maxX, height: max(totalHeight, 0)), positions)
     }
 }
