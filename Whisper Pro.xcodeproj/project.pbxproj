@@ -499,7 +499,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 222;
+				CURRENT_PROJECT_VERSION = 223;
 				DEVELOPMENT_ASSET_PATHS = "\"Whisper Pro/Preview Content\"";
 				DEVELOPMENT_TEAM = A6D3VFTJYT;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -515,7 +515,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.4;
-				MARKETING_VERSION = 2.2.3;
+				MARKETING_VERSION = 2.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.prakashjoshipax.WhisperPro;
 				PRODUCT_NAME = "Whisper Pro";
 				PRODUCT_MODULE_NAME = WhisperPro;
@@ -535,7 +535,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 222;
+				CURRENT_PROJECT_VERSION = 223;
 				DEVELOPMENT_ASSET_PATHS = "\"Whisper Pro/Preview Content\"";
 				DEVELOPMENT_TEAM = A6D3VFTJYT;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -551,7 +551,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.4;
-				MARKETING_VERSION = 2.2.3;
+				MARKETING_VERSION = 2.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.prakashjoshipax.WhisperPro;
 				PRODUCT_NAME = "Whisper Pro";
 				PRODUCT_MODULE_NAME = WhisperPro;
