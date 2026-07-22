@@ -51,6 +51,14 @@ class WindowManager: NSObject {
         mainWindow = window
         window.identifier = Self.mainWindowIdentifier
         window.delegate = self
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didChangeOcclusionStateNotification, object: window)
+        NotificationCenter.default.addObserver(self, selector: #selector(mainWindowOcclusionStateChanged(_:)), name: NSWindow.didChangeOcclusionStateNotification, object: window)
+    }
+
+    @objc private func mainWindowOcclusionStateChanged(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        let visible = window.isVisible && window.occlusionState.contains(.visible)
+        NotificationCenter.default.post(name: .mainWindowVisibilityChanged, object: nil, userInfo: ["visible": visible])
     }
     
     func showMainWindow() -> NSWindow? {

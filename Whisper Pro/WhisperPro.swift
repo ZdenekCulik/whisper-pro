@@ -218,11 +218,11 @@ struct WhisperProApp: App {
     }
 
     private static func createPersistentContainer(schema: Schema, logger: Logger) throws -> ModelContainer {
-        // Data lives under the original VoiceInk identifier — the project was renamed
-        // VoiceInk → Whisper Pro, but the real transcript/dictionary/stats history
-        // accumulated here. Keep reading it so renaming never orphans user data.
+        // Data lives under the WhisperPro identifier — same folder as Recordings/ and
+        // WhisperModels/. The old VoiceInk folder was a leftover from the rename and
+        // pointing the stores there orphaned the real transcript/dictionary/stats history.
         let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.prakashjoshipax.VoiceInk", isDirectory: true)
+            .appendingPathComponent("com.prakashjoshipax.WhisperPro", isDirectory: true)
 
         try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
 

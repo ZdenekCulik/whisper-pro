@@ -558,7 +558,7 @@ private struct PanelLookPreviewCard: View {
         //    (lets the author use a specific wallpaper without shipping it in the repo).
         let custom = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first?
-            .appendingPathComponent("com.prakashjoshipax.VoiceInk/PanelPreviewWallpaper.jpg")
+            .appendingPathComponent("com.prakashjoshipax.WhisperPro/PanelPreviewWallpaper.jpg")
         if let custom, let image = NSImage(contentsOf: custom), image.isValid {
             return image
         }

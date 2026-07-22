@@ -22,10 +22,9 @@ enum TypedStore {
     /// skip typed work instead of crashing.
     static let container: ModelContainer? = {
         do {
-            // Same Application Support location the main stores use (data lives under
-            // the original VoiceInk identifier even after the rename to Whisper Pro).
+            // Same Application Support location the main stores use.
             let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("com.prakashjoshipax.VoiceInk", isDirectory: true)
+                .appendingPathComponent("com.prakashjoshipax.WhisperPro", isDirectory: true)
             try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
 
             let url = appSupportURL.appendingPathComponent("typed-v3.store")

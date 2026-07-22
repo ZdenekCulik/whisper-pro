@@ -571,10 +571,7 @@ private struct DashboardAvatarView: View {
     let initials: String
     @Binding var colorIndex: Int
     @State private var isHovered = false
-    // A slow, Core Animation-driven rotation so the avatar feels alive even at rest,
-    // without the always-on TimelineView clock the hover state uses (that one's kept
-    // hover-only to avoid burning CPU idly - see whisper-pro-cpu-preview-animations).
-    @State private var ambientAngle: Double = 0
+    @State private var isMainWindowVisible = true
 
     private var colors: [Color] {
         let sets = avatarColorSets
@@ -607,8 +604,16 @@ private struct DashboardAvatarView: View {
                     spinSurface(at: timeline.date.timeIntervalSinceReferenceDate)
                 }
             } else {
-                spinSurface(at: Self.idleTime)
-                    .rotationEffect(.degrees(ambientAngle))
+                // Ambient rotation is a pure function of time, driven by a TimelineView that
+                // SwiftUI stops scheduling entirely when paused - unlike a repeatForever
+                // animation, which keeps ticking in the background even after the window
+                // is hidden and can't be cancelled by re-assigning the animated value.
+                TimelineView(.animation(minimumInterval: 1.0 / 15.0, paused: !isMainWindowVisible)) { timeline in
+                    let t = timeline.date.timeIntervalSinceReferenceDate
+                    let angle = t.truncatingRemainder(dividingBy: 40) / 40 * 360
+                    spinSurface(at: Self.idleTime)
+                        .rotationEffect(.degrees(angle))
+                }
             }
             Text(initials)
                 .font(.system(size: 23, weight: .semibold, design: .rounded))
@@ -618,11 +623,6 @@ private struct DashboardAvatarView: View {
         .clipShape(Circle())
         .overlay(Circle().stroke(Color.white.opacity(0.16), lineWidth: 1))
         .contentShape(Circle())
-        .onAppear {
-            withAnimation(.linear(duration: 40).repeatForever(autoreverses: false)) {
-                ambientAngle = 360
-            }
-        }
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.3)) {
                 isHovered = hovering
@@ -632,6 +632,9 @@ private struct DashboardAvatarView: View {
             withAnimation(.easeInOut(duration: 0.35)) {
                 colorIndex = (colorIndex + 1) % avatarColorSets.count
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .mainWindowVisibilityChanged)) { note in
+            isMainWindowVisible = (note.userInfo?["visible"] as? Bool) ?? true
         }
     }
 }
