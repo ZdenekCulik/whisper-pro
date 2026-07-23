@@ -185,7 +185,9 @@ enum ModeRuntimeResolver {
         return aiService.connectedProviders.first
     }
 
-    private static func resolvedEnhancementModelName(
+    // Not private: exercised directly by AIEnhancementSeedingTests so the test can
+    // verify the Groq default-model fallback without touching the real Keychain.
+    static func resolvedEnhancementModelName(
         provider: AIProvider?,
         configuredModelName: String?,
         aiService: AIService
@@ -203,10 +205,11 @@ enum ModeRuntimeResolver {
             return configuredModelName
         }
 
-        if let firstModel = models.first {
-            return firstModel
+        let defaultModel = provider.defaultModel
+        if models.isEmpty || models.contains(defaultModel) {
+            return defaultModel
         }
 
-        return provider.defaultModel
+        return models.first
     }
 }

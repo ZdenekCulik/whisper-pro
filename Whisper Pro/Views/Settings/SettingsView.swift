@@ -298,6 +298,10 @@ struct SettingsView: View {
             Section("English Coach") {
                 EnglishCoachSettingsView()
             }
+
+            Section("AI Enhancement") {
+                AIEnhancementSettingsView()
+            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)

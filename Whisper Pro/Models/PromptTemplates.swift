@@ -22,6 +22,7 @@ enum PromptTemplates {
     static let emailPromptId = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
     static let rewritePromptId = UUID(uuidString: "00000000-0000-0000-0000-000000000004")!
     static let assistantPromptId = UUID(uuidString: "00000000-0000-0000-0000-000000000005")!
+    static let cleanPromptId = UUID(uuidString: "00000000-0000-0000-0000-000000000006")!
 
     static var all: [TemplatePrompt] {
         createTemplatePrompts()
@@ -33,6 +34,20 @@ enum PromptTemplates {
     
     static func createTemplatePrompts() -> [TemplatePrompt] {
         [
+            TemplatePrompt(
+                id: cleanPromptId,
+                title: "Clean",
+                promptText: """
+                    Task: Correct transcription mistakes and mishearings in raw dictation based on the context of the sentence.
+
+                    - Preserve the original language of the dictation.
+                    - Preserve the user's meaning, tone, and word choice exactly.
+                    - Do not change the style, structure, or formatting of the text.
+                    - Do not add anything that was not said.
+                    - Return only the corrected text, with no comments or explanations.
+                    """,
+                useSystemInstructions: true
+            ),
             TemplatePrompt(
                 id: defaultPromptId,
                 title: "Default",

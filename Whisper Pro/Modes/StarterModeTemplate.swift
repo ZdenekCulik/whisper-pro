@@ -52,7 +52,7 @@ enum StarterModeCatalog {
             icon: .symbol("mic.fill"),
             description: "Fast local transcription with no AI enhancement.",
             guidance: "Use this when you want the quickest possible voice-to-text result. It records with Parakeet V3 and pastes the transcript as-is.",
-            promptId: nil,
+            promptId: PromptTemplates.cleanPromptId,
             outputMode: .paste,
             usesAIEnhancement: false,
             useSelectedTextContext: false,

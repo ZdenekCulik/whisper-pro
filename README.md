@@ -57,7 +57,10 @@ permissions once). To produce a distributable DMG for sharing with someone else,
 
 After first launch, add your own speech-to-text API key (e.g. Soniox) in the app's
 settings. No keys are bundled in this repo. If you're on Soniox, also enter your current
-account balance in Settings, Profile, so the Dashboard can show what's left.
+account balance in Settings, Profile, so the Dashboard can show what's left. For optional
+AI-powered cleanup of dictated text, turn it on in Settings under AI Enhancement, where you
+can customize the prompt and choose your LLM provider (such as Groq) after adding its API key
+under AI Models.
 
 ## iOS dictation keyboard
 

@@ -47,6 +47,11 @@ class AIEnhancementService: ObservableObject {
             self.customPrompts = []
         }
 
+        let seedResult = StarterModePromptSeeder.ensurePrompts(for: StarterModeKind.allCases, in: customPrompts)
+        if seedResult.didChange {
+            customPrompts = seedResult.prompts
+        }
+
         repairModePromptSelections()
 
         NotificationCenter.default.addObserver(

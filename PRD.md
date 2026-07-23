@@ -50,7 +50,10 @@ provider-agnostic transcription, and an output pipeline that produces text ready
 2. When that app or site is focused, the matching Mode's prompt, AI enhancement
    settings, and (optionally) a custom shell command run on the transcript instead of
    the default pipeline.
-3. This lets the same hotkey behave differently in, say, an email client versus a code
+3. Settings, AI Enhancement exposes a toggle and prompt picker for whichever Mode is
+   currently active or default, plus a read-only line showing which provider/model will
+   run and a warning if that provider has no API key yet.
+4. This lets the same hotkey behave differently in, say, an email client versus a code
    editor versus a chat app, without the user manually switching settings each time.
 
 ### 4.4 First run / onboarding
