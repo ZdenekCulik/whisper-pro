@@ -59,6 +59,20 @@ After first launch, add your own speech-to-text API key (e.g. Soniox) in the app
 settings. No keys are bundled in this repo. If you're on Soniox, also enter your current
 account balance in Settings, Profile, so the Dashboard can show what's left.
 
+## iOS dictation keyboard
+
+Whisper Pro also ships an iOS custom keyboard for dictation, no letter keys, just live
+Soniox transcription typed straight into the focused field.
+
+1. Build and install the "Whisper Pro iOS" app target on your iPhone.
+2. Open the app and enter your Soniox API key in the setup screen.
+3. In iOS Settings, General, Keyboard, Keyboards, add Whisper Pro and turn on
+   **Allow Full Access** (required so the keyboard can reach Soniox).
+4. Switch to the Whisper Pro keyboard in any text field and tap to dictate.
+
+Status: builds and passes its unit tests on the iOS simulator; not yet verified on a
+physical device or published to TestFlight.
+
 ## Requirements
 
 - macOS 14.0 or later

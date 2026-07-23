@@ -100,6 +100,7 @@ provider-agnostic transcription, and an output pipeline that produces text ready
 | English Coach | Turns the by-product of daily dictation (a large corpus of the user's own speech) into passive language-learning feedback. |
 | Onboarding with permission repair | Accessibility grants silently go stale after every ad-hoc rebuild during development; the repair flow turns a recurring dev annoyance into a one-click fix instead of a support dead end. |
 | Homebrew cask + notarized DMG distribution | Lets the app be installed and updated like any other Mac app, without requiring Xcode or a build step for casual reinstalls. |
+| iOS dictation keyboard (custom keyboard extension, no letter keys, live Soniox transcription) | Extends the same hotkey-free, speak-and-it-appears workflow to iOS, where there is no equivalent of a global hotkey and system dictation is slower and less accurate. Status: builds and passes unit tests on the iOS simulator; not yet verified on a physical device or published to TestFlight. |
 
 ## 6. Non-goals
 
@@ -155,6 +156,15 @@ provider-agnostic transcription, and an output pipeline that produces text ready
   someone else (`WhisperPro.dist.entitlements`).
 - **Auto-update:** Sparkle is integrated (`SUFeedURL` pointing at the repo's
   `appcast.xml`) but currently inert, as noted in section 6.
+- **iOS:** two additional Xcode targets in the same project, "Whisper Pro iOS" (a
+  container app with a single setup screen for the Soniox API key, microphone access,
+  and enable-the-keyboard instructions) and "Whisper Pro Keyboard" (a custom keyboard
+  extension that is dictation-only, no letter keys; live partial transcript is
+  inserted and rewritten in place as Soniox refines it). They share code via `Shared
+  iOS/` (session, audio recording, PCM16 conversion, transcript editing, keychain) and
+  a Keychain access group for the API key; `SonioxRealtimeClient.swift` is shared with
+  the macOS app by target membership rather than duplicated. Builds and passes unit
+  tests on the simulator; not yet run on a physical device or shipped via TestFlight.
 
 ## 8. Distribution model
 
