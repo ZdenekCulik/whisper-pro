@@ -39,13 +39,16 @@ final class IOSAudioRecorder {
         guard !isRecording else { return }
 
         do {
-            // `.playAndRecord` (not `.record`) because `.duckOthers` is only a valid
-            // option with categories that include playback - combining it with
-            // `.record` makes setCategory throw, which is what surfaced as the
-            // opaque "RecorderError error 0" in the keyboard extension. `.default`
-            // mode (not `.measurement`) is the safer choice inside an extension.
+            // `.mixWithOthers` (not `.duckOthers`) because a keyboard extension is not
+            // allowed to take over the host app's audio session. Ducking/interrupting
+            // others makes `engine.start()` fail on a real device with CoreAudio error
+            // 2003329396 ("input unavailable in the current context") - the mic simply
+            // isn't handed to the extension when it demands exclusive-ish control.
+            // Mixing lets us pull the input alongside the host instead. This only bites
+            // on device; the simulator doesn't enforce the same audio-session arbitration,
+            // which is why it worked there. `.spokenAudio` mode fits short voice capture.
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .default, options: [.duckOthers, .allowBluetooth])
+            try session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.mixWithOthers, .allowBluetooth, .defaultToSpeaker])
             try session.setActive(true, options: [])
             Self.log.debug("audio session active: category=\(session.category.rawValue, privacy: .public) sampleRate=\(session.sampleRate) inputChannels=\(session.inputNumberOfChannels)")
         } catch {
