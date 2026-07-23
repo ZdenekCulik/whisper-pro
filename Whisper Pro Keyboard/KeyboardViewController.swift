@@ -9,6 +9,15 @@ final class KeyboardViewController: UIInputViewController {
     /// What this keyboard has already typed into the document for the current partial.
     private var insertedPartial = ""
 
+    /// Tells iOS this keyboard is dictation-capable. Without this, the system does
+    /// not grant the microphone to the extension and starting the audio engine fails
+    /// on a real device with CoreAudio 2003329396. Per Apple DTS guidance this
+    /// override is required (alongside Full Access) for keyboard audio capture.
+    override var hasDictationKey: Bool {
+        get { true }
+        set {}
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
